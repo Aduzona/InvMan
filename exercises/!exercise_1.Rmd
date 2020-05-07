@@ -1,0 +1,113 @@
+---
+title: "Exercise 1 - Material classification"
+author: "Thomas Kirschstein"
+subtitle: Inventory Management
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: true
+    number_sections: false
+---
+
+```{r, setup, echo=F, include=T}
+library(DT)
+library(kableExtra)
+library(knitr)
+
+fc.stats <- function(yhat, y){
+  y.res <- y -  yhat
+  # MSE
+  mse <- mean(y.res^2, na.rm =T)
+  # MAD
+  mad <- median(abs(y.res), na.rm =T)
+  # MAPE
+  mape <- mean(abs(y.res)/yhat, na.rm =T)
+  # log q
+  msla <- mean(log(yhat/y)^2, na.rm =T)
+  #   return
+  res <- c(mse,mad,mape,msla)
+  names(res) <- c("MSE","MAD","MAPE","MSLA")
+  return(res)
+  }
+
+```
+
+# ABC analysis
+
+In a production process, 15 different raw materials are required. For each material the average unit price and average period demands are summarized in the following table.
+
+```{r, exe1-abc, echo=F, include=T, collapse=TRUE}
+# number of products
+n <- 15
+set.seed(1234)
+prices <- round(rexp(n, .15),2)
+av.demand <- round(rexp(n, 0.0025 ), 0)
+tab <- data.frame("material.id" = 1:n, "unit.price" = prices, "av.period.demand" = av.demand)
+kable(tab, digits = c(0,2,0),  caption = "Material data ABC", format = "pandoc")
+```
+
+Thresholds for the classes are set to 70% and 95%.
+
+(@) Determine on the basis of these data a classification of the materials in A, B, and C. 
+
+Hint: Compute the material consumption values first.
+
+
+# Logarithmized accuracy ratio
+
+For material 15, the material demand as well as the associated forecasts over the last 10 periods are recorded in the following table.
+
+```{r, exe1-lar, echo=F, include=T, collapse=TRUE}
+# number of products
+n <- 10
+set.seed(12345)
+demand.15 <- round(arima.sim(n = n, list(ar = c(0.9, -0.5), ma = c(-0.2, 0.25)), sd = 25) + 370)
+f.dem <- HoltWinters(demand.15, alpha = .4, beta = F, gamma = F)
+tab <- data.frame("period" = 1:n, "demand" = demand.15, "forecasts" = c(NA,f.dem$fitted[,"xhat"]))
+kable(tab, digits = c(0,2,1),  caption = "Demand time series of material 15", format = "pandoc")
+```
+
+(@) Estimate the expected logarithmized accuracy ratios (LAR) and the expected squared LAR by using two different estimators. 
+(@) What is the expected forecasting error for each material? Do you find differences?
+
+# ABC/RSU analysis
+
+For the 15 materials introduced above, the following table quantifies the forecasting accuracy of material demands by expected squared LAR (ESLAR) and expected squared forecasting error (ESFE).
+
+```{r, exe1-rsu, echo=F, include=T, collapse=TRUE}
+# number of products
+n <- 15
+set.seed(12345)
+f.acc.mat <- as.data.frame(t(sapply(av.demand, function(x) {
+  tmp <- round(abs(arima.sim(n = 100, list(ar = c(runif(1, -.9,.9)), ma = c(runif(1,-.5,.5))), sd = sqrt(x)) + x)) 
+  tmp[tmp==0] <- 1
+  f.tmp <- HoltWinters(tmp, alpha = runif(1, .2,.8), beta = F, gamma = F)
+  fc.stats(yhat = f.tmp$fitted[,"xhat"] , y = tail(tmp, -1))
+  })))
+tab <- data.frame("material.id" = 1:n, "MSE" = f.acc.mat$MSE, "mean.squared.LAR" = f.acc.mat$MSLA)
+kable(tab, digits = c(0,1,4),  caption = "Forecasting statistics for materials 1-15", format = "pandoc")
+```
+
+(@) Conduct an RSU analysis based on these information using both forecasting accuracy measures. What are appropriate thresholds for material categorization? Can you find reasonable thresholds for ESFAR and ESFE such that all materials are categorized identically? 
+
+(@) Use the material value information and a reasonable thresholds for ESFAR to categorize materials jointly in the ABC/RSU classes. Which recommendations for material provisioning stratgies would you deduce?
+
+# IQR analysis
+
+Each of the 15 materials is stored in an inbound warehouse which is operated as a consignment warehouse by the supplier. The supplier assess the storage space assignment regularly. The following table reports the average stock levels (in units) for each of the materials.
+
+
+```{r, exe1-iqr, echo=F, include=T, collapse=TRUE}
+# number of products
+n <- 15
+set.seed(123456)
+tab <- data.frame("material.id" = 1:n, "av.stock.level" = round(sapply(av.demand, function(x) rexp(1, 1/x))) )
+kable(tab, digits = c(0,0),  caption = "Average stock levels for materials 1-15", format = "pandoc")
+```
+
+The materials should be categorized as "no mover", "slow mover", and "fast mover" based on the IQR methodology. Assume that a material's accepted turnover time $o_i$ is based on its corresponding ABC ranking. Use the values given on the lecture slides for classes A,B, and C.
+
+(@) Use the all information about the 15 materials to calculate the active inventory, excess inventory, and inventory quality ratio. Categorize the materials according to their IQR ratios (use the thresholds from the lecture slides).
+(@) Which recommendations for the stock holding processes do you deduce for each material?
