@@ -1,0 +1,191 @@
+---
+title: "Solutions Exercise 1 - Material classification"
+author: "Thomas Kirschstein"
+subtitle: Inventory Management
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: true
+    number_sections: false
+---
+
+```{r, setup, echo=F, include=T}
+library(DT)
+library(kableExtra)
+library(knitr)
+
+fc.stats <- function(yhat, y){
+  y.res <- y -  yhat
+  # MSE
+  mse <- mean(y.res^2, na.rm =T)
+  # MAD
+  mad <- median(abs(y.res), na.rm =T)
+  # MAPE
+  mape <- mean(abs(y.res)/yhat, na.rm =T)
+  # log q
+  msla <- mean(log(yhat/y)^2, na.rm =T)
+  #   return
+  res <- c(mse,mad,mape,msla)
+  names(res) <- c("MSE","MAD","MAPE","MSLA")
+  return(res)
+  }
+
+```
+
+# ABC analysis
+
+(@) Determine on the basis of these data a classification of the materials in A, B, and C. 
+
+Hint: Compute the material consumption values first.
+
+```{r, exe1-abc, echo=F, include=T, collapse=TRUE}
+# number of products
+n <- 15
+set.seed(1234)
+prices <- round(rexp(n, .15),2)
+av.demand <- round(rexp(n, 0.0025 ), 0)
+val.vec <- av.demand * prices
+id.vec <- 1:n
+id.vec.ord <- id.vec[order(val.vec, decreasing = T)]
+val.vec.ord <- sort(val.vec, decreasing = T)
+cum.val.vec.ord <- cumsum(val.vec.ord)
+rel.cum.val.vec.ord <- cum.val.vec.ord / sum(val.vec.ord)
+class.vec <- rep("A", n)
+class.vec[rel.cum.val.vec.ord > 0.7 & rel.cum.val.vec.ord <= 0.95 ] <- "B"
+class.vec[rel.cum.val.vec.ord > 0.95 ] <- "C"
+tab <- data.frame("ord.material.id" = id.vec.ord, "price (ord.)" = prices[order(val.vec, decreasing = T)] , "demand (ord.)" = av.demand[order(val.vec, decreasing = T)], "mat.values" = val.vec.ord, "cum.mat.values" = cum.val.vec.ord, "rel.cum.value.shares" = round(rel.cum.val.vec.ord * 100, 1), "class" = class.vec )
+kable(tab, digits = c(0,2,0,2,2,1,0),  caption = "ABC analysis results", format = "pandoc")
+# a plot
+plot(1:n, rel.cum.val.vec.ord, type="b", xaxt = "n", pch =16, xlab = "material id", ylab = "rel. cum. value share")
+axis(1, at = 1:n, labels = id.vec.ord)
+abline(h = c(.7,.95), lwd=2, lty=2, col="darkgrey")
+text(x = rep(1,3) , y = c(.5,.875,.99), labels = LETTERS[1:3] )
+```
+
+
+# Logarithmized accuracy ratio
+
+(@) Estimate the expected logarithmized accuracy ratios (LAR) and the expected squared LAR by using two different estimators. 
+
+```{r, exe1-lar, echo=F, include=T, collapse=TRUE}
+# number of products
+n <- 10
+set.seed(12345)
+demand.15 <- as.numeric(round(arima.sim(n = n, list(ar = c(0.9, -0.5), ma = c(-0.2, 0.25)), sd = 25) + 370))
+f.dem <- HoltWinters(demand.15, alpha = .4, beta = F, gamma = F)
+fs <- as.numeric(c(NA,f.dem$fitted[,"xhat"]))
+abs.fe <- round((demand.15 - fs),1)
+q.vec <- round(log(fs/demand.15),3)
+tab <- data.frame("period" = as.character(1:n), "demand" = as.numeric(demand.15), "forecasts" = as.numeric(fs), "for.err.(FE)" = abs.fe, "sq.FE" = abs.fe^2, "LAR" = q.vec , "sq.LAR" = q.vec^2)
+sd(abs.fe, na.rm = T)
+var(abs.fe, na.rm = T)
+tab <- rbind(tab, 
+             c(NA , round(mean(demand.15, na.rm = T),1), round(mean(fs, na.rm = T),1) , round(mean(abs.fe, na.rm = T),1) , round(mean(abs.fe^2, na.rm = T),1) , round(mean(q.vec, na.rm = T),3) , round(mean(q.vec^2, na.rm = T),3)), 
+             c(NA , round(median(demand.15, na.rm = T),1), round(median(fs, na.rm = T),1) , round(median(abs.fe, na.rm = T),1) , round(median(abs.fe^2, na.rm = T),1) , round(median(q.vec, na.rm = T),3) , round(median(q.vec^2, na.rm = T),3))
+             )
+tab[11:12,1] <- c("mean", "median")
+kable(tab, digits = c(0,0,0,1,1,3,3),  caption = "Forecast analysis", format = "pandoc")
+```
+
+(@) What is the expected forecasting error (FE) for each material? Do you find differences?
+
+Mean and median differ as the median is less sensitive to outliers. HOwevre, in expectation both estimators deliver identical measures of location (provided the forecasts are unbiased). 
+
+# ABC/RSU analysis
+
+(@) Conduct an RSU analysis based on these information using both forecasting accuracy measures. What are appropriate thresholds for material categorization? Can you find reasonable thresholds for ESFAR and ESFE such that all materials are categorized identically? 
+
+Reasonable thresholds might be 100 and 750 for MSE as well as 0.005 and 0.1 for LAR. 
+
+```{r, exe1-rsu, echo=F, include=T, collapse=TRUE}
+# number of products
+n <- 15
+set.seed(12345)
+f.acc.mat <- as.data.frame(t(sapply(av.demand, function(x) {
+  tmp <- round(abs(arima.sim(n = 100, list(ar = c(runif(1, -.9,.9)), ma = c(runif(1,-.5,.5))), sd = sqrt(x)) + x)) 
+  tmp[tmp==0] <- 1
+  f.tmp <- HoltWinters(tmp, alpha = runif(1, .2,.8), beta = F, gamma = F)
+  fc.stats(yhat = f.tmp$fitted[,"xhat"] , y = tail(tmp, -1))
+  })))
+
+id.ord.mse <- order(f.acc.mat$MSE, decreasing = F)
+id.ord.msla <- order(f.acc.mat$MSLA, decreasing = F)
+thres.mse <- c(100, 750)
+thres.msla <- c(0.005, 0.1)
+mse.ord <- f.acc.mat$MSE[id.ord.mse]
+msla.ord <- f.acc.mat$MSLA[id.ord.msla]
+class.mse <- rep("R", n)
+class.mse[mse.ord > thres.mse[1] & mse.ord <= thres.mse[2] ] <- "S" 
+class.mse[ mse.ord > thres.mse[2] ] <- "U"
+class.msla <- rep("R", n)
+class.msla[ msla.ord > thres.msla[1] & msla.ord <= thres.msla[2] ] <- "S" 
+class.msla[ msla.ord > thres.msla[2] ] <- "U"
+tab <- data.frame("ord.material.id(MSE)" = as.character(id.vec[id.ord.mse]), "MSE" = mse.ord, "class.mse" = class.mse, "ord.material.id(MSLA)" = as.character(id.vec[id.ord.msla]) , "mean.squared.LAR" = msla.ord, "class.msla" = class.msla )
+kable(tab, digits = c(0,1,0,0,3,0),  caption = "RSU classification for materials 1-15", format = "pandoc")
+```
+
+As the ordering of materials is quite different for ESFE and ELAR (see material 12), there is no constellation of thresholds such that material classification is identical. 
+
+(@) Use the material value information and a reasonable thresholds for ESFAR to categorize materials jointly in the ABC/RSU classes. Which recommendations for material provisioning strategies would you deduce?
+
+```{r, exe1-rsu2, echo=F, include=T, collapse=TRUE}
+
+names(class.vec) <- id.vec.ord
+names(rel.cum.val.vec.ord) <- id.vec.ord
+
+tab <- data.frame("LAR" = msla.ord, "class.RSU" = class.msla , "cum.rel.val.share" = rel.cum.val.vec.ord[id.ord.msla] , "class.ABC" = class.vec[id.ord.msla] )
+
+kable(tab, digits = c(3,0,2,0), "pandoc")
+plot(msla.ord , rel.cum.val.vec.ord[id.ord.msla] , xlab=expression(Q[i]), pch=16, ylab="cum. rel. value share")
+abline(h=c(.7, .95), v=thres.msla, lty=2, lwd=2, col="darkgrey")
+```
+
+Recommendations:
+
+- AU $\Rightarrow$ VMI/consignment warehouse (CW)
+- AS $\Rightarrow$ VMI/JIT
+- BU $\Rightarrow$ ind-proc./VMI
+- BS $\Rightarrow$ VMI
+- BR $\Rightarrow$ VMI/JIT/JIS
+- CU $\Rightarrow$ WH/VMI
+- CS $\Rightarrow$ WH
+- CR $\Rightarrow$ WH
+
+# IQR analysis
+
+Each of the 15 materials is stored in an inbound warehouse which is operated as a consignment warehouse by the supplier. The supplier assess the storage space assignment regularly. The following table reports the average stock levels (in units) for each of the materials.
+
+The materials should be categorized as "no mover", "slow mover", and "fast mover" based on the IQR methodology. Assume that a material's accepted turnover time $o_i$ is based on its corresponding ABC ranking. Use the values given on the lecture slides for classes A,B, and C.
+
+(@) Use the all information about the 15 materials to calculate the active inventory, excess inventory, and inventory quality ratio. Categorize the materials according to their IQR ratios (use the thresholds from the lecture slides).
+
+```{r, exe1-iqr, echo=F, include=T, collapse=TRUE}
+# number of products
+n <- 15
+set.seed(123456)
+ave.stock.vec <- round(sapply(av.demand, function(x) rexp(1, 1/x))) 
+o.vec <- as.factor(class.vec)
+levels(o.vec) <- c(4,8,12)
+o.vec <- as.numeric(as.character(o.vec))
+names(o.vec) <- id.vec.ord
+s.vec <- prices * ave.stock.vec
+toval.vec <- o.vec[as.character(1:n)] * av.demand * prices
+a.vec <- apply(cbind(s.vec, toval.vec),1 , max)
+iqr.vec <- a.vec/s.vec
+e.vec <- s.vec - a.vec
+tab <- data.frame("material.id" = 1:n, "stock.value" = round(s.vec,1), "to.value" = round(toval.vec,1), "act.inv" = round(a.vec,1),  "iqr" = round(iqr.vec,1), "excess.inv" = round(e.vec,1))
+kable(tab, digits = c(0,1,1,1,1,1),  caption = "Life-cycle analysis for materials 1-15", format = "pandoc")
+names(iqr.vec) <- 1:n
+plot(iqr.vec , rel.cum.val.vec.ord[as.character(1:n)] , xlab="IQR", pch=16, ylab="cum. rel. value share")
+abline(h=c(.7, .95), lty=2, lwd=2, col="darkgrey")
+text(x = c(60,rep(100,3)) , y = c(0.2,.5,.875,.99), labels = c("fast mover", LETTERS[1:3]) )
+```
+
+
+(@) Which recommendations for the stock holding processes do you deduce for each material?
+
+As all IQR values are greater than 1, for all materials higher stock levels should be realized. Particularly, A and B materials with IQR values $>10$ are critical.
+
+
