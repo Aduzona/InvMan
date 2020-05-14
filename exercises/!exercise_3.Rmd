@@ -1,0 +1,134 @@
+---
+title: "Exercise 3 - Forecasting"
+author: "Thomas Kirschstein"
+subtitle: Inventory Management
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: true
+    number_sections: false
+---
+
+```{r, setup, echo=F, include=T}
+library(DT)
+library(kableExtra)
+library(knitr)
+```
+
+# Forecasting for dense time series (I)
+
+The following time series shows 30 daily measures of a society process.
+
+Day | Value
+|------:|-----:|
+1 | 2,082
+2 | 2,486
+3 | 2,866
+4 | 3,380
+5 | 3,609
+6 | 2,458
+7 | 1,775
+8 | 1,785
+9 | 2,237
+10 | 2,352
+11 | 2,337
+12 | 2,055
+13 | 1,737
+14 | 1,018
+15 | 1,144
+16 | 1,304
+17 | 1,478
+18 | 1,639
+19 | 945
+20 | 793
+21 | 679
+22 | 685
+23 | 947
+24 | 1,284
+25 | 1,209
+26 | 1,251
+27 | 667
+28 | 357
+29 | 933
+30 | 798
+
+1. Apply 1st-order exponential smoothing (with $\alpha = 0.25$ and initial forecast $2,500$) and moving averages (with $n=7$). 
+2. Plot the time series. Which structural properties do you observe? Are the aforementioned forecasting models appropriate to forecast the time series?
+3. Do you recognize the time series?
+
+# Forecasting for dense time series (II)
+
+The following table contains the total production of wine in 1000 hectolitres (hl) in the UK since 2009 on a quarterly basis (see [here](https://www.uktradeinfo.com/Statistics/Pages/TaxAndDutyBulletins.aspx).
+
+quarter	|	year	|	wine (in 1k hl)	
+|------:|-----:|-----:|
+Q1	|	2009	|	2,433	
+Q2	|	2009	|	3,263	
+Q3	|	2009	|	3,135	
+Q4	|	2009	|	3,849	 
+Q1	|	2010	|	2,900	
+Q2	|	2010	|	3,170	
+Q3	|	2010	|	3,177	
+Q4	|	2010	|	3,653	 
+Q1	|	2011	|	2,933	
+Q2	|	2011	|	2,913	
+Q3	|	2011	|	3,185	
+Q4	|	2011	|	3,829	 
+Q1	|	2012	|	3,152	
+Q2	|	2012	|	2,681	
+Q3	|	2012	|	3,038	
+Q4	|	2012	|	3,913
+
+1. Display the time series graphically. Which typical pattern becomes obvious in the time series?
+2. Calculate forecasts for the time series with 2nd-order and 3rd-order exponential smoothing (with $\alpha = \beta = \gamma = 0.3$). Display the forecasts in the same diagram. *Hint*: Initialize the forecasts with the average over all observations for $a_0$, the average slope ($b_0 = \frac{y_{16} - y_1}{2}$, and $c_{-3:0}=(-340,-200,-50,+600)$)
+3. Compare the forecasts' accuracies by an appropriate measure. Which forecasting method should be chosen for the time series? 
+
+# Forecasting sporadic time series (intermittent demands)
+
+The following table shows monthly lubricant sales of a oil company. 
+
+month	|	year	|	sales quantities
+|------:|-----:|-----:|
+Jan   | 2005 | 0
+Feb   | 2005 | 2
+Mar   | 2005 | 0
+Apr   | 2005 | 1
+May   | 2005 | 0
+Jun   | 2005 | 11
+Jul   | 2005 | 0
+Aug   | 2005 | 0
+Sep   | 2005 | 0
+Oct   | 2005 | 0
+Nov   | 2005 | 2
+Dec   | 2005 | 0
+Jan   | 2006 | 6
+Feb   | 2006 | 3
+Mar   | 2006 | 0
+Apr   | 2006 | 0
+May   | 2006 | 0
+Jun   | 2006 | 0
+Jul   | 2006 | 0
+Aug   | 2006 | 7
+Sep   | 2006 | 0
+Oct   | 2006 | 0
+Nov   | 2006 | 0
+Dec   | 2006 | 0
+Jan   | 2007 | 0
+Feb   | 2007 | 0
+Mar   | 2007 | 0
+Apr   | 2007 | 3
+May   | 2007 | 1
+Jun   | 2007 | 0
+Jul   | 2007 | 0
+Aug   | 2007 | 1
+Sep   | 2007 | 0
+Oct   | 2007 | 1
+Nov   | 2007 | 0
+Dec   | 2007 | 0
+
+1. Calculate forecasts for the year 2008 at the of Dec. 2007.
+2. Assume that in the first 3 months of 2008 no lubricants are sold. What are the forecasts for the next 3 months in 2008?
+3. Another approach to forecast sporadic tiem series is proposed by Croston (see [here](https://otexts.com/fpp2/counts.html) for an brief introduction). Calculate forecasts by based on Croston's method for the first 3 month of 2008 either by hand or by using R.
+
