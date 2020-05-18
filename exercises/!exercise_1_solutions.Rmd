@@ -79,8 +79,6 @@ fs <- as.numeric(c(NA,f.dem$fitted[,"xhat"]))
 abs.fe <- round((demand.15 - fs),1)
 q.vec <- round(log(fs/demand.15),3)
 tab <- data.frame("period" = as.character(1:n), "demand" = as.numeric(demand.15), "forecasts" = as.numeric(fs), "for.err.(FE)" = abs.fe, "sq.FE" = abs.fe^2, "LAR" = q.vec , "sq.LAR" = q.vec^2)
-sd(abs.fe, na.rm = T)
-var(abs.fe, na.rm = T)
 tab <- rbind(tab, 
              c(NA , round(mean(demand.15, na.rm = T),1), round(mean(fs, na.rm = T),1) , round(mean(abs.fe, na.rm = T),1) , round(mean(abs.fe^2, na.rm = T),1) , round(mean(q.vec, na.rm = T),3) , round(mean(q.vec^2, na.rm = T),3)), 
              c(NA , round(median(demand.15, na.rm = T),1), round(median(fs, na.rm = T),1) , round(median(abs.fe, na.rm = T),1) , round(median(abs.fe^2, na.rm = T),1) , round(median(q.vec, na.rm = T),3) , round(median(q.vec^2, na.rm = T),3))
@@ -95,7 +93,7 @@ Mean and median differ as the median is less sensitive to outliers. HOwevre, in 
 
 # ABC/RSU analysis
 
-(@) Conduct an RSU analysis based on these information using both forecasting accuracy measures. What are appropriate thresholds for material categorization? Can you find reasonable thresholds for ESFAR and ESFE such that all materials are categorized identically? 
+(@) Conduct an RSU analysis based on these information using both forecasting accuracy measures. What are appropriate thresholds for material categorization? Can you find reasonable thresholds for ESLAR and ESFE such that all materials are categorized identically? 
 
 Reasonable thresholds might be 100 and 750 for MSE as well as 0.005 and 0.1 for LAR. 
 
@@ -122,30 +120,33 @@ class.mse[ mse.ord > thres.mse[2] ] <- "U"
 class.msla <- rep("R", n)
 class.msla[ msla.ord > thres.msla[1] & msla.ord <= thres.msla[2] ] <- "S" 
 class.msla[ msla.ord > thres.msla[2] ] <- "U"
-tab <- data.frame("ord.material.id(MSE)" = as.character(id.vec[id.ord.mse]), "MSE" = mse.ord, "class.mse" = class.mse, "ord.material.id(MSLA)" = as.character(id.vec[id.ord.msla]) , "mean.squared.LAR" = msla.ord, "class.msla" = class.msla )
+tab <- data.frame("ord.material.id(MSE)" = as.character(id.vec[id.ord.mse]), "MSE" = mse.ord, "class.mse" = class.mse, "ord.material.id(MSLA)" = as.character(id.vec[id.ord.msla]) , "ESLAR" = msla.ord, "class.msla" = class.msla )
 kable(tab, digits = c(0,1,0,0,3,0),  caption = "RSU classification for materials 1-15", format = "pandoc")
 ```
 
 As the ordering of materials is quite different for ESFE and ELAR (see material 12), there is no constellation of thresholds such that material classification is identical. 
 
-(@) Use the material value information and a reasonable thresholds for ESFAR to categorize materials jointly in the ABC/RSU classes. Which recommendations for material provisioning strategies would you deduce?
+(@) Use the material value information and a reasonable thresholds for ESLAR to categorize materials jointly in the ABC/RSU classes. Which recommendations for material provisioning strategies would you deduce?
 
 ```{r, exe1-rsu2, echo=F, include=T, collapse=TRUE}
 
 names(class.vec) <- id.vec.ord
 names(rel.cum.val.vec.ord) <- id.vec.ord
 
-tab <- data.frame("LAR" = msla.ord, "class.RSU" = class.msla , "cum.rel.val.share" = rel.cum.val.vec.ord[id.ord.msla] , "class.ABC" = class.vec[id.ord.msla] )
+tab <- data.frame("mat.id"=id.ord.msla,  "LAR" = msla.ord, "class.RSU" = class.msla , "cum.rel.val.share" = rel.cum.val.vec.ord[as.character(id.ord.msla)] , "class.ABC" = class.vec[as.character(id.ord.msla)] )
 
-kable(tab, digits = c(3,0,2,0), "pandoc")
-plot(msla.ord , rel.cum.val.vec.ord[id.ord.msla] , xlab=expression(Q[i]), pch=16, ylab="cum. rel. value share")
+kable(tab, digits = c(0,3,0,2,0), "pandoc", row.names=F)
+plot(msla.ord , rel.cum.val.vec.ord[as.character(id.ord.msla)] , xlab=expression(Q[i]), pch=16, ylab="cum. rel. value share")
 abline(h=c(.7, .95), v=thres.msla, lty=2, lwd=2, col="darkgrey")
+text(x = c(-.005, .055,.225), y= rep(.35,3), labels = c("R","S","U"))
+text(x = rep(.35,3), y= c(.5,.85,.99), labels = c("A","B","C"))
 ```
 
 Recommendations:
 
 - AU $\Rightarrow$ VMI/consignment warehouse (CW)
 - AS $\Rightarrow$ VMI/JIT
+- AR $\Rightarrow$ JIS/JIT
 - BU $\Rightarrow$ ind-proc./VMI
 - BS $\Rightarrow$ VMI
 - BR $\Rightarrow$ VMI/JIT/JIS
