@@ -48,23 +48,23 @@ s.vals <- c(119.0	, 75.0, 	18.2,	58.6	,59.4,	32.2,	19.7,	28.6,	9.6	,13.2,	8.8,	5
 # o vals
 o.vals <- c(rep(2,3), rep(4,4), rep(6,8))
 # a values
-a.vals <- o.vals*w.vals/1000
+to.vals <- o.vals*w.vals/1000
+# IQR values
+iqr.vals <- to.vals/s.vals
 # e1 values
-e.1.vals <- sapply(s.vals - a.vals, function(x) max(0,x))
-e.1.vals
-# IQR vals
-iqr.vals <- sapply(round(a.vals/s.vals,2), function(x) min(x,1))
+e.1.vals <- s.vals - to.vals
 
 
-png(file = "abc_iqr_plot.png", bg = "transparent", width=1200, height = 600)
+
+win.metafile("abc_iqr_plot.wmf", width=10, height = 5)
 par(family="serif")
-plot(iqr.vals, cum.ord.share , type="p" , xlab = "IQR value", ylab="cumulative ordered value share", pch = 16, cex=1.5, cex.lab = 2, cex.axis = 1.5, ylim=c(.25,1), xlim = c(0,1))
+plot(iqr.vals, cum.ord.share , type="p" , xlab = "IQR value", ylab="cumulative ordered value share", pch = 16, cex=1.5, cex.lab = 2, cex.axis = 1.5, ylim=c(.25,1), xlim = c(0,3))
 abline(h = c(.8,.95), lty="dashed")
-abline(v = c(.33,.66), lty="dashed")
-text(x= iqr.vals, y = cum.ord.share-.03, labels=1:15, cex=1.75)
+abline(v = c(.5,1), lty="dashed")
+text(x= iqr.vals, y = cum.ord.share-.06, labels=1:15, cex=1.25)
 par(xpd=T)
-text(x= c(1.065,1.065,1.065), y = c(.6,.875,.990), labels=c("A","B","C"), cex=2)
-text(x= c(.17,.5,0.85), y = c(1.05,1.05,1.05), labels=c("no mover","slow mover","fast mover"), cex=2)
+text(x= c(3,3,3), y = c(.6,.875,.990), labels=c("A","B","C"), cex=1.5)
+text(x= c(.25,.75,2), y = c(1.08,1.08,1.08), labels=c("no mover","slow mover","fast mover"), cex=1.5)
 dev.off()
 
 
