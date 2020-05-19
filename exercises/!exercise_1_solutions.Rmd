@@ -3,12 +3,12 @@ title: "Solutions Exercise 1 - Material classification"
 author: "Thomas Kirschstein"
 subtitle: Inventory Management
 output:
-  pdf_document: default
   html_document:
     df_print: paged
     toc: yes
     toc_float: true
     number_sections: false
+  pdf_document: default
 ---
 
 ```{r, setup, echo=F, include=T}
@@ -89,13 +89,13 @@ kable(tab, digits = c(0,0,0,1,1,3,3),  caption = "Forecast analysis", format = "
 
 (@) What is the expected forecasting error (FE) for each material? Do you find differences?
 
-Mean and median differ as the median is less sensitive to outliers. HOwevre, in expectation both estimators deliver identical measures of location (provided the forecasts are unbiased). 
+Mean and median differ as the median is less sensitive to outliers. However, in expectation both estimators deliver identical measures of location (provided the forecasts are unbiased). 
 
 # ABC/RSU analysis
 
 (@) Conduct an RSU analysis based on these information using both forecasting accuracy measures. What are appropriate thresholds for material categorization? Can you find reasonable thresholds for ESLAR and ESFE such that all materials are categorized identically? 
 
-Reasonable thresholds might be 100 and 750 for MSE as well as 0.005 and 0.1 for LAR. 
+Reasonable thresholds might be 100 and 750 for ESFE as well as 0.005 and 0.1 for ESLAR 
 
 ```{r, exe1-rsu, echo=F, include=T, collapse=TRUE}
 # number of products
@@ -120,7 +120,7 @@ class.mse[ mse.ord > thres.mse[2] ] <- "U"
 class.msla <- rep("R", n)
 class.msla[ msla.ord > thres.msla[1] & msla.ord <= thres.msla[2] ] <- "S" 
 class.msla[ msla.ord > thres.msla[2] ] <- "U"
-tab <- data.frame("ord.material.id(MSE)" = as.character(id.vec[id.ord.mse]), "MSE" = mse.ord, "class.mse" = class.mse, "ord.material.id(MSLA)" = as.character(id.vec[id.ord.msla]) , "ESLAR" = msla.ord, "class.msla" = class.msla )
+tab <- data.frame("ord.material.id(ESFE)" = as.character(id.vec[id.ord.mse]), "ESFE" = mse.ord, "class.ESFE" = class.mse, "ord.material.id(ESLAR)" = as.character(id.vec[id.ord.msla]) , "ESLAR" = msla.ord, "class.ESLAR" = class.msla )
 kable(tab, digits = c(0,1,0,0,3,0),  caption = "RSU classification for materials 1-15", format = "pandoc")
 ```
 
@@ -133,9 +133,9 @@ As the ordering of materials is quite different for ESFE and ELAR (see material 
 names(class.vec) <- id.vec.ord
 names(rel.cum.val.vec.ord) <- id.vec.ord
 
-tab <- data.frame("mat.id"=id.ord.msla,  "LAR" = msla.ord, "class.RSU" = class.msla , "cum.rel.val.share" = rel.cum.val.vec.ord[as.character(id.ord.msla)] , "class.ABC" = class.vec[as.character(id.ord.msla)] )
+tab <- data.frame("mat.id"=id.ord.msla,  "ESLAR" = msla.ord, "class.RSU" = class.msla , "cum.rel.val.share" = rel.cum.val.vec.ord[as.character(id.ord.msla)]*100 , "class.ABC" = class.vec[as.character(id.ord.msla)] )
 
-kable(tab, digits = c(0,3,0,2,0), "pandoc", row.names=F)
+kable(tab, digits = c(0,3,0,2,1), "pandoc", row.names=F)
 plot(msla.ord , rel.cum.val.vec.ord[as.character(id.ord.msla)] , xlab=expression(Q[i]), pch=16, ylab="cum. rel. value share")
 abline(h=c(.7, .95), v=thres.msla, lty=2, lwd=2, col="darkgrey")
 text(x = c(-.005, .055,.225), y= rep(.35,3), labels = c("R","S","U"))
@@ -162,24 +162,29 @@ The materials should be categorized as "no mover", "slow mover", and "fast mover
 
 (@) Use the all information about the 15 materials to calculate the active inventory, excess inventory, and inventory quality ratio. Categorize the materials according to their IQR ratios (use the thresholds from the lecture slides).
 
+Thresholds used are:  A...4 per., B..8 per. and c..12 per.
+The definition of IQR used here is $IQR_i=\frac{to_i}{s_i}$ (to.value/stock.value).
+
 ```{r, exe1-iqr, echo=F, include=T, collapse=TRUE}
 # number of products
 n <- 15
 set.seed(123456)
 ave.stock.vec <- round(sapply(av.demand, function(x) rexp(1, 1/x))) 
 o.vec <- as.factor(class.vec)
-levels(o.vec) <- c(4,8,12)
+levels(o.vec) <- c(2,4,6)
 o.vec <- as.numeric(as.character(o.vec))
 names(o.vec) <- id.vec.ord
 s.vec <- prices * ave.stock.vec
 toval.vec <- o.vec[as.character(1:n)] * av.demand * prices
-a.vec <- apply(cbind(s.vec, toval.vec),1 , max)
+a.vec <- apply(cbind(s.vec, toval.vec),1 , min)
 iqr.vec <- a.vec/s.vec
+iqr.vec2 <- toval.vec/s.vec
 e.vec <- s.vec - a.vec
-tab <- data.frame("material.id" = 1:n, "stock.value" = round(s.vec,1), "to.value" = round(toval.vec,1), "act.inv" = round(a.vec,1),  "iqr" = round(iqr.vec,1), "excess.inv" = round(e.vec,1))
+e.vec2 <- s.vec - toval.vec
+tab <- data.frame("material.id" = 1:n, "stock.value" = round(s.vec,1), "to.value" = round(toval.vec,1), "act.inv" = round(a.vec,1),  "iqr" = round(iqr.vec2,1), "excess.inv" = round(e.vec2,1))
 kable(tab, digits = c(0,1,1,1,1,1),  caption = "Life-cycle analysis for materials 1-15", format = "pandoc")
-names(iqr.vec) <- 1:n
-plot(iqr.vec , rel.cum.val.vec.ord[as.character(1:n)] , xlab="IQR", pch=16, ylab="cum. rel. value share")
+names(iqr.vec2) <- 1:n
+plot(iqr.vec2 , rel.cum.val.vec.ord[as.character(1:n)] , xlab="IQR", pch=16, ylab="cum. rel. value share")
 abline(h=c(.7, .95), lty=2, lwd=2, col="darkgrey")
 text(x = c(60,rep(100,3)) , y = c(0.2,.5,.875,.99), labels = c("fast mover", LETTERS[1:3]) )
 ```
@@ -187,6 +192,6 @@ text(x = c(60,rep(100,3)) , y = c(0.2,.5,.875,.99), labels = c("fast mover", LET
 
 (@) Which recommendations for the stock holding processes do you deduce for each material?
 
-As all IQR values are greater than 1, for all materials higher stock levels should be realized. Particularly, A and B materials with IQR values $>10$ are critical.
+As all IQR values are greater than 1, for all materials higher stock levels should be realized. Particularly, A and B materials with IQR values $>10$ might be critical.
 
 
