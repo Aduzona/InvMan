@@ -356,22 +356,28 @@ n <- 10000 + rp
 dem <-  rnorm(n, mu, sd)
 # S cost optimal 
 res.cost.stoch <- tS.inv.L.pois( t = 8, S = S.cost, l.ini = 200 , dem = dem, L.lambda = lambda)
+res.cost.stoch.fix <- tS.inv.L.pois( t = 8, S = S.cost.fix, l.ini = 200 , dem = dem, L.lambda = lambda)
 res.cost.fix <- tS.inv.L(t = 8, S = S.cost.fix, l.ini = 200 , dem = dem, L = lambda)
 
 stock.perf(res.cost.stoch)
+stock.perf(res.cost.stoch.fix)
 stock.perf(res.cost.fix)
 
 # alpha optimal 
 res.alpha.stoch <- tS.inv.L.pois( t = 8, S = S.alpha, l.ini = 200 , dem = dem, L.lambda = lambda)
+res.alpha.stoch.fix <- tS.inv.L.pois( t = 8, S = S.alpha.fix, l.ini = 200 , dem = dem, L.lambda = lambda)
 res.alpha.fix <- tS.inv.L( t = 8, S = S.alpha.fix, l.ini = 200 , dem = dem, L = lambda)
 
 stock.perf(res.alpha.stoch)
+stock.perf(res.alpha.stoch.fix)
 stock.perf(res.alpha.fix)
 
 
 # beta optimal 
 res.beta.stoch <- tS.inv.L.pois( t = 8, S = S.beta, l.ini = 200 , dem = dem, L.lambda = lambda)
+res.beta.stoch.fix <- tS.inv.L.pois( t = 8, S = S.beta.fix, l.ini = 200 , dem = dem, L.lambda = lambda)
 res.beta.fix <- tS.inv.L( t = 8, S = S.beta.fix, l.ini = 200 , dem = dem, L = lambda)
 
 stock.perf(res.beta.stoch)
+stock.perf(res.beta.stoch.fix)
 stock.perf(res.beta.fix)
