@@ -89,3 +89,68 @@ x <- c(50,80,10,0,5,0,0,0)
 s <- c(10,20,30,240,25,90,10,150)
 ## net demand
 G %*% (x-s)
+
+
+# dynamic MRP
+
+
+dyn.mrp <- function(A, stages, stocks, dem.mat, lead.times ){
+  # A ... direct prod. coef. matrix (n x n)
+  # stages ... integer vector of prod. stages (n x 1)
+  # stocks ... vector of initial stocks (n x 1)
+  # dem.mat ... demand matrix (t x n)
+  # lead.times ... integer vector of prod. lead times (n x 1)
+  # names of products
+  nam.vec <- colnames(A)
+  names(lead.times) <- nam.vec
+  # number of products
+  n.prod <- nrow(A)
+  # number of periods
+  n.per <- nrow(dem.mat)
+  # initialize result matrix
+  res.mat <- matrix(0, nrow = nrow(dem.mat), ncol = ncol(A)*6 )
+  colnames(res.mat) <- c(
+    paste(nam.vec, "extDem", sep="-"),
+    paste(nam.vec, "intDem", sep="-"),
+    paste(nam.vec, "groDem", sep="-"),
+    paste(nam.vec, "stocks", sep="-"),
+    paste(nam.vec, "netDem", sep="-"),
+    paste(nam.vec, "iniDem", sep="-")
+  )
+  # initial stocks in res.mat
+  res.mat[1, grepl("stocks", colnames(res.mat))] <- stocks
+  # write external demand in res.mat
+  res.mat[,1:n.prod] <-  dem.mat
+  # max. nb. prod stages
+  stag.max <- max(stages)
+  # list with materials per prod. stage
+  prod.set <- lapply(0:stag.max, function(x) nam.vec[stages == x] )
+  names(prod.set) <- 0:stag.max
+  
+  for(i in 0:stag.max){
+    tmp.prods <- prod.set[[i+1]]
+    for(j in tmp.prods){
+      # int dem mat
+      tmp.a <- A[j, ]
+      tmp.int.dem.prod <- tmp.a[tmp.a > 0]
+      # calculate internal demand
+      if(length(tmp.int.dem.prod) > 0){
+        res.mat[, paste(j,"intDem", sep="-")] <- rowSums(t(t(res.mat[,paste(names(tmp.int.dem.prod),"iniDem", sep="-")]) * tmp.int.dem.prod))
+      }
+      # calculate gross demand 
+      res.mat[, paste(j,"groDem", sep="-")] <- res.mat[, paste(j,"intDem", sep="-")] + res.mat[, paste(j,"extDem", sep="-")]
+      # calculate net demand 
+      for(t in 1:nrow(dem.mat)){
+        tmp.withdrw <- min(res.mat[t, paste(j,"groDem", sep="-")] , res.mat[t, paste(j,"stocks", sep="-")])
+        res.mat[t, paste(j,"netDem", sep="-")] <- res.mat[t, paste(j,"groDem", sep="-")] - tmp.withdrw
+        if(t < nrow(dem.mat)){
+          res.mat[t+1, paste(j,"stocks", sep="-")] <- res.mat[t, paste(j,"stocks", sep="-")] - tmp.withdrw
+        }
+      }
+      # initialization
+      res.mat[, paste(j,"iniDem", sep="-")] <- c(res.mat[(lead.times[j]+1):n.per, paste(j,"netDem", sep="-")], rep(0, lead.times[j]) )
+    }
+  }
+  return(res.mat)
+}
+
