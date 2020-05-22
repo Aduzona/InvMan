@@ -3,12 +3,12 @@ title: "Solutions Exercise 1 - Material classification"
 author: "Thomas Kirschstein"
 subtitle: Inventory Management
 output:
+  pdf_document: default
   html_document:
     df_print: paged
     toc: yes
     toc_float: true
     number_sections: false
-  pdf_document: default
 ---
 
 ```{r, setup, echo=F, include=T}
@@ -177,12 +177,12 @@ names(o.vec) <- id.vec.ord
 s.vec <- prices * ave.stock.vec
 toval.vec <- o.vec[as.character(1:n)] * av.demand * prices
 a.vec <- apply(cbind(s.vec, toval.vec),1 , min)
-iqr.vec <- a.vec/s.vec
+#iqr.vec <- a.vec/s.vec
 iqr.vec2 <- toval.vec/s.vec
 e.vec <- s.vec - a.vec
 e.vec2 <- s.vec - toval.vec
-tab <- data.frame("material.id" = 1:n, "stock.value" = round(s.vec,1), "to.value" = round(toval.vec,1), "act.inv" = round(a.vec,1),  "iqr" = round(iqr.vec2,1), "excess.inv" = round(e.vec2,1))
-kable(tab, digits = c(0,1,1,1,1,1),  caption = "Life-cycle analysis for materials 1-15", format = "pandoc")
+tab <- data.frame("material.id" = 1:n, "stock.value" = round(s.vec,1), "to.value" = round(toval.vec,1),  "iqr" = round(iqr.vec2,1), "excess.inv" = round(e.vec2,1))
+kable(tab, digits = c(0,1,1,1,1),  caption = "Life-cycle analysis for materials 1-15", format = "pandoc")
 names(iqr.vec2) <- 1:n
 plot(iqr.vec2 , rel.cum.val.vec.ord[as.character(1:n)] , xlab="IQR", pch=16, ylab="cum. rel. value share")
 abline(h=c(.7, .95), lty=2, lwd=2, col="darkgrey")
