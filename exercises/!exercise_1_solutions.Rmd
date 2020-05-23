@@ -3,12 +3,12 @@ title: "Solutions Exercise 1 - Material classification"
 author: "Thomas Kirschstein"
 subtitle: Inventory Management
 output:
+  pdf_document: default
   html_document:
     df_print: paged
     toc: yes
     toc_float: true
     number_sections: false
-  pdf_document: default
 ---
 
 ```{r, setup, echo=F, include=T}
@@ -162,7 +162,7 @@ The materials should be categorized as "no mover", "slow mover", and "fast mover
 
 (@) Use the all information about the 15 materials to calculate the active inventory, excess inventory, and inventory quality ratio. Categorize the materials according to their IQR ratios (use the thresholds from the lecture slides).
 
-Thresholds used are:  A...4 per., B..8 per. and c..12 per.
+Thresholds used are:  A...2 per., B..4 per. and C..6 per.
 The definition of IQR used here is $IQR_i=\frac{to_i}{s_i}$ (to.value/stock.value).
 
 ```{r, exe1-iqr, echo=F, include=T, collapse=TRUE}
