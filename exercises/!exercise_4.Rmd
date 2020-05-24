@@ -1,0 +1,47 @@
+---
+pdf_document: default
+author: "Thomas Kirschstein"
+subtitle: Inventory Management
+output:
+  html_document: null
+  df_print: paged
+  pdf_document: default
+toc: yes
+toc_float: yes
+number_sections: no
+title: "Exercise 4 - Newsvendor model"
+---
+  
+```{r, setup, echo=F, include=T}
+library(DT)
+library(kableExtra)
+library(knitr)
+```
+	
+# Newsvendor model (I)
+
+In a bakery the the bread production should be optimized. The bread is sold to the customers at a price of 1.95 Euro per loaf. The variable production cost are estimated at 0.80 Euro per loaf. For each unsold loaf a compensation of 10 Cent is received. Assume that the daily bread demand is normally distributed with $\mu=22$ and $\sigma=6$.
+
+1. What is the cost-optimal number of loafs to be produced per day? 
+2. Calculate optimal total cost and profit of the bakery.
+3. Which $\alpha$ and $\beta$ service levels can be achieved when the cost-optimal loaf quantity is produced?
+
+
+# Newsvendor model (II)
+
+Harry Usur sells tickets for pop concerts and other events on the black market right before the events begin. In the weeks before he has to decide how many official tickets to buy in advance.
+
+The next event is a concert with an official ticket price of 150 Euro. Harry estimates the black market price at 210 Euro per ticket. Additionally, Harry assumes a uniformly distributed black market demand between 75 and 125 tickets. Tickets not sold at the black market can be returned with a refund of 120 Euro.
+
+1. How many tickets should Harry buy officially in advance at best?
+2. What is Harry's optimal expected profit?
+
+# Discrete newsvendor model
+
+In a solar panel production system, solar modules consist of multiple solar aggregates. The production of aggregates has a stochastic yield, i.e., 4 out of 100 produced solar aggregates are faulty and cannot be assembled in modules. Therefore, the production system has a solar aggregate buffer stock. For each aggregate in the buffer stock a stock-holding cost rate of 1 Euro per month is assumed. If a module cannot be completed due to a missing aggregate the associated stock-out cost rate per aggregate is assumed to be 5 Euro. 
+
+In the next month 20 solar modules should be produced whereby for each module 5 aggregates have to be manufactured. 
+
+What is the cost-optimal buffer stock of solar aggregates and the associated optimal cost?
+
+
