@@ -1,0 +1,70 @@
+---
+title: "Solutions Exercise 4 - Newsvendor"
+author: "Thomas Kirschstein"
+subtitle: Inventory Management
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: true
+    number_sections: false
+---
+```{r, setup, echo=F, include=T}
+library(DT)
+library(kableExtra)
+library(knitr)
+```
+
+# Newsvendor (I)
+
+Data: $c_u = 1.95 - 0.80 = 1.15$ Euro and $c_o = 0.80 - 0.10 = 0.70$ Euro with $X \sim N(22, 6^2)$
+
+1. critical ratio $CR = \frac{c_u}{c_u + c_o} = \frac{1.15}{1.15 + 0.70}=0.6216216$ $\Rightarrow$ $q^* = 22 + 6 \cdot 0.30974 = 23.858 \approx 24$ loafs is optimal
+
+2. expected cost: $E(Z) = (c_u + c_o) \cdot \varphi(z^*) \cdot \sigma = 1.85 \cdot 6 \cdot \varphi(0.30974) =  4.22$ Euro
+expected profit: $G(Z) = c_u \cdot \mu - (c_u + c_o) \cdot \varphi(z^*) \cdot \sigma = 1.15 \cdot 22 - 1.85 \cdot 6 \cdot \varphi(0.30974) =  21.07$ Euro
+
+3. $\alpha$ SL equals the critical ratio, i.e. 62%.
+$\beta$ SL is $1-\frac{L(Y,q)}{\mu}=1-\sigma \cdot \frac{L(Z,q')}{\mu}$. Thus, with $q' = 0.30974$ and $\sigma = 6$ it follows  $\beta = 1-6 \cdot \frac{0.26}{22} = 92.9$%.
+
+# Newsvendor (II)
+\begin{align*}
+Z (q)=&  c_o \cdot \int_{0}^{q} (q-y) \cdot f_y(y) dy + c_u \cdot \int_{q}^{\infty} (y-q) \cdot f_y(y) dy & \text{where } y \sim U\left(75, 125\right)\\
+=&  c_o \cdot \int_{75}^{q} (q-y) \cdot 0.02 dy + c_u \cdot \int_{q}^{125} (y-q) \cdot 0.02 dy & \\
+=&  c_o \cdot \left[ 0.02 \cdot q \cdot y - 0.01 \cdot y^2 \right]_{75}^{q}  + c_u \cdot \left[  0.01 \cdot y^2 - 0.02 \cdot q \cdot y \right]_{q}^{125} &   \\
+=&  0.3 \cdot q^2 - 45 \cdot q +1687.5 + 9375 - 150 \cdot q + 0.6\cdot q^2 & \text{with }c_u = 60 \text{ and }c_o=30\\
+=&  0.9 \cdot q^2 - 195 \cdot q + 11062.5&
+\end{align*}
+
+The derivative of $Z(q)$ is $Z'(q) = 1.8 \cdot q - 195$ such that $q^* \approx 108$. The expected profit is $100 \cdot 60 - Z(108) = 600 - 500.1 \approx 100$ Euro.
+
+# Discrete newsvendor
+
+The spare part demand $Y$ for solar aggregates is binomially distributed with $n=20 \cdot 5 = 100$ and $p=0.04$, i.e. $Y \sim B(n,p)$. Thus, the density values can be calculated as $P(Y=y) = {n \choose y} \cdot p^y \cdot (1-p)^{n-y}$.
+
+```{r, exe4-3, echo=FALSE}
+n <- 100
+p <- 0.04
+cu <- 5
+co <- 1
+x.vals <- 0:15
+
+res.mat <- data.frame(y = x.vals, 
+                      density = dbinom(x.vals, size = n, prob = p),
+                      cost.os = NA, cost.us = NA, total.cost = NA)
+for(i in 1:nrow(res.mat)){
+  tmp.p <- res.mat$y[i]
+  tmp.os <- sum((tmp.p - res.mat$y[1:(i-1)])*res.mat$dens[1:(i-1)])
+  tmp.us <- sum((res.mat$y[i:nrow(res.mat)] - tmp.p)*res.mat$dens[i:nrow(res.mat)])
+  res.mat$cost.os[i] <- tmp.os
+  res.mat$cost.us[i] <- tmp.us
+  res.mat$total.cost[i] <- tmp.os*(cu+co) + cu*(n*p - tmp.p  )  #tmp.us*cu + tmp.os*co
+}
+
+kable(round(res.mat,2) , "pandoc")
+#datatable(round(res.mat,2))
+```
+
+Cost optimal is a buffer stock of `r res.mat$y[which.min(res.mat$total.cost)]` with associated total cost per month of `r round(res.mat$total.cost[which.min(res.mat$total.cost)],2)`  Euro.
+
