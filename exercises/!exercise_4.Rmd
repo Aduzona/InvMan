@@ -1,15 +1,14 @@
 ---
-pdf_document: default
+title: "Exercise 4 - Newsvendor model"
 author: "Thomas Kirschstein"
 subtitle: Inventory Management
 output:
-  html_document: null
-  df_print: paged
   pdf_document: default
-toc: yes
-toc_float: yes
-number_sections: no
-title: "Exercise 4 - Newsvendor model"
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: true
+    number_sections: false
 ---
   
 ```{r, setup, echo=F, include=T}
