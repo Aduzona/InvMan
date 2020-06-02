@@ -1,0 +1,212 @@
+---
+title: "Solutions Exercise 5 - Periodic review policy"
+author: "Thomas Kirschstein"
+subtitle: Inventory Management
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: true
+    number_sections: false
+---
+```{r, setup, echo=F, include=T, error=FALSE, warning=FALSE, message=FALSE}
+library(DT)
+library(kableExtra)
+library(knitr)
+library(forecast)
+library(sarima)
+
+
+# calculate performance measures
+stock.perf <- function(res, c.bo = 1 , c.sh = .5, c.or = 0, cutoff = 10){
+  n <- nrow(res)
+  tmp.plot <- tail(res, n - cutoff)
+  
+  tot.cost <- (sum(tmp.plot$i[tmp.plot$i > 0]*c.sh) - sum(tmp.plot$i[tmp.plot$i < 0]*c.bo) + sum(tmp.plot$x > 0)*c.or)/nrow(tmp.plot)
+  nb.oi <- sum(tmp.plot$x > 0)
+  id.oi <- which(tmp.plot$del > 0) - 1
+  alpha <- sum(tmp.plot$i[id.oi] >= 0)/nb.oi
+  id.oi.beta <- id.oi[tmp.plot$i[id.oi] < 0]
+  #beta <- 1 + (sum(tmp.plot$i[id.oi.beta])/nb.oi)/mean(tmp.plot$d)
+  beta <- 1 + sum(tmp.plot$i[id.oi.beta])/sum(tmp.plot$d)
+  return(list(cost = tot.cost, alpha = alpha, beta = beta))
+}
+
+
+# function for calculating 1stES forecasts
+first.es <- function(y, alpha = .4,  initial = c(mean(y))){
+  
+  n <- length(y)
+  res <- matrix(NA, ncol=3, nrow=n+2)
+  rownames(res) <- 0:(n+1)
+  colnames(res) <- c("y","a","y.hat")
+  
+  res["0", c("a")] <- initial
+  res[2:(n+1),"y"] <- y
+  
+  for(i in 2:(nrow(res)-1) ){
+    res[i, "y.hat"] <- res[i-1, "a"] 
+    res[i, "a"] <- alpha * res[i, "y"] + (1 - alpha) * res[i, "y.hat"]
+  }
+  res[n+2, "y.hat"] <- res[n+1, "a"]
+  return(res)
+}
+
+v.fun.direct.norm <- function(s, mu = 0, sigma = 1){
+  integrate(function(y) (y-s)*dnorm(y, mean=mu, sd = sigma), lower = s, upper=Inf)$value
+}
+
+vv.fun.direct.norm <- Vectorize(v.fun.direct.norm)
+
+x.val <- seq(0,3, length.out = 1000)
+loss.val <- vv.fun.direct.norm(x.val)
+
+```
+
+# Periodic review with fixed lead time (I)
+
+1. What is the lead time and the critical ratio? Determine the cost-optimal order-up level $S$.
+
+Lead time is 0 and the risk period is one week as the shop is closed at the weekend. The critical ratio is $CR = \frac{c^{bo}}{c^{sh} +c^{bo}} = \frac{3}{3 + 0.5}=0.8571$. Thus, the cost-optimal $S$ is $S^* = \mu + \sigma \cdot \Phi^{-1}(0.8571)=100+10 \cdot 1.068 \approx$ `r round(100+10*qnorm(3/3.5))` pieces.
+
+2. What are the optimal total cost as well as $\alpha$ and $\beta$ service level for the solution from 1.?
+
+The optimal expected cost (at the end of the order cycle) is $E(C(S^*)) = (c^{sh} + c^{bo}) \cdot \sigma \cdot \varphi(\Phi^{-1}(CR)) =  3.5 \cdot 10 \cdot \varphi(1.068) \approx$ `r round(3.5*10*dnorm(qnorm(3/3.5)),2)` Euro per week.
+
+3. Assume now that the supplier delivers two week later. Recalculate the cost-optimal $S$.
+
+Now the risk period is 3 weeks. Thus, $\mu_{RP} = 3\cdot 100= 300$ and $\sigma_{RP}=\sqrt{3} \cdot 10\approx 17.32$ such that  $S^* = \mu_{RP} + \sigma_{RP} \cdot \Phi^{-1}(0.8571)=300+17.32 \cdot 1.068 \approx$ `r round(300+17.32*qnorm(3/3.5))` pieces.
+
+4. Based on the assumptions of 3., which order-up level $S$ is required to assure a $\beta$ service level of 97%.
+
+We take the order-interval perspective. Therefore, it has to hold $(1-\beta) \cdot \mu_{T} = L(Y_{RP},S)$. With normally distributed demand results $S = \mu_{RP} + \sigma_{RP} \cdot  L^{-1}\left(Z,\frac{(1-\beta) \cdot \mu_{T} }{ \sigma_{RP} } \right)$. The argument of the inverse standard loss function is `r (1-0.97)*100/(sqrt(3)*10)` such that $L^{-1}\left(Z,0.1732 \right)=$ `r round(x.val[which.min((loss.val - (1-0.97)*100/(sqrt(3)*10) )^2)],4)` and, therefore, $S^{\beta } = 300 + 17.32\cdot 0.5826 \approx 310$ pieces.
+
+
+# Periodic review with fixed lead time  (II)
+
+1. Calculate $S$ such that a $\beta$ service level of 99% is reached. 
+
+First, we need to assess the fluctuation of demand forecasts. There are two sources of variation: 1) the demand uncertainty and 2) the forecasting bias. To account for both, we estimate the root mean squared error (RMSE) based on the squared forecasting errors:
+
+```{r, exe2-1, echo=FALSE}
+set.seed(1234)
+ts <- sim_sarima(n=24, model = list(ar=c(-.8, -0.1), ma=-0.4, sar=0.5, sma=-0.3, iorder=0, siorder=0, nseasons=12, sigma2 = 50)) + 300
+ts <- ts(ts, deltat =1/12) 
+fc.ts <- first.es(ts, alpha = 0.5)
+fc.ts <- cbind(fc.ts, (fc.ts[,1] -  fc.ts[,3])^2)
+colnames(fc.ts)[c(1,3,4)] <- c("demand","forecast","sq.forecast.error")
+fc.rmse <- sqrt(mean(fc.ts[-c(1,26), "sq.forecast.error"]))
+kable(round(fc.ts[-c(1,26), -2]), "pandoc")
+```
+
+The RMSE is then `r round(fc.rmse, 1)`. In the following we assume normally distributed demand and take the order-interval perspective. The risk period is 3+1=4 months, the expected/forecasted demand $\mu_T$ is `r round(fc.ts[26,"forecast"])` with $\sigma_T=$ `r round(fc.rmse, 1)`. Thus, with normally distributed demand results we have $S = 4 \cdot 296 + \sqrt{4} \cdot 54.8 \cdot  L^{-1}\left(Z,\frac{(1-0.99) \cdot 296}{ \sqrt{4} \cdot 54.8 } \right)$. The argument of the inverse standard loss function is `r (1-0.99)*296/(2*54.8)` such that $L^{-1}\left(Z,0.027 \right)=$ `r round(x.val[which.min((loss.val - (1-0.99)*296/(sqrt(4)*54.8) )^2)],4)` and, therefore, $S^{\beta } = 1184 + 109.6 \cdot 1.5345 \approx 1352$ tons.
+
+2. Do you think the  outlined procedure for determining $S$ is reasonable? If you identify shortcomings, elaborate on them. 
+
+- the time series seems to show a seasonal pattern $\Rightarrow$ another forecasting procedure would be better $\Rightarrow$ 3rd order ES or other method
+- if pattern exists, the forecasts should comprise the whole year, not only the next month $\Rightarrow$ individual $S$ levels for each month
+- if there is no seasonal pattern, there seem to be months with higher and lower volatility $\Rightarrow$ heteroscedastic demand
+- in case of heteroscedastic demand assessing the demand distribution in the 4-month risk period should be based on volatility estimates for those periods too.
+
+# Periodic review with stochastic lead time  
+
+A microchip manufacturer produces wafer based on monocrystalline silicon. The supply process for silicone is quite erratic as the order lead (given in weeks) varies according to Binomial distribution with $n=6$ and $p=\frac{2}{3}$. The weekly silicone demand (in kg) is assumed to be normally distributed and i.i.d. with $\mu = 250$ and $\sigma = 50$. Assume that every 4 weeks a silicone order is placed with the supplier and a $\alpha$ service level of 97% shall be assured. 
+
+1. Determine the order-up level $S$ when using the expected lead time to determine the risk period.
+
+Expected lead time is $n \cdot p = 4$ weeks. Therefore, the rsik period is 4+4=8 weeks. The safety stock factor is $\Phi^{-1}(0.97)=1.88$. Thus, it follows $S^{\alpha}= 8 \cdot 250 + \sqrt 8 \cdot 50 \cdot 1.88 \approx 2266$ kg.
+
+2. Determine the order-up level $S$ when approximating the demand in the risk period with $\mu_{RP} = \mu_L \cdot \mu_y + T \cdot \mu_y$ and $\sigma_{RP} = \mu_L \cdot \sigma^2_y + \mu_y^2 \cdot \sigma_L^2 + T \cdot \sigma_y^2$.
+
+For a binomially distributed random variable, $\sigma^2$ is defined as $n\cdot p\cdot (1-p)=1.33$. Thus, it follows $E(Y_{RP}) = 250 \cdot 4 + 250 \cdot 4 = 2000$ $Var(Y_{RP})= 4 \cdot 50^2 + 250^2 \cdot 1.33 + 4 \cdot 50^2 =  103125$. Now, $S$ can be calculated as $S^{\alpha}= 2000 + \sqrt{103125} \cdot 1.88 \approx 2604$ kg.
+
+3. Determine the order-up level $S$ when explicitly taking into account the distribution of demand in the risk period.
+
+To assess the demand distribution in the risk period, we need to calculate the lead time probabilities using $f(k,n,p) = {n \choose k} \cdot p^k \cdot (1-p)^{n-k}$ and cumulative probability.
+
+```{r, exe3-1, echo=FALSE}
+df <- cbind(0:5, round(dbinom(0:6, 6, prob = 2/3),3), round(pbinom(0:6, 6, prob = 2/3),3) )
+colnames(df) <- c("lead time (weeks)","probability f(k,n,p)","cum. prob. F(k,n,p)")
+kable(df, "pandoc")
+```
+
+Now, for each lead time realization we can assess the demand distribution during the lead time. 
+
+```{r, exe3-2, echo=FALSE}
+x.seq <- seq(4*250-4*2*50,10*250+ sqrt(10)*3*50, length.out = 10000)
+# lead time = 0
+plot(x.seq, dnorm(x.seq , mean = 4*250, sd = sqrt(4) * 50 )*dbinom(0, 6, prob = 2/3), type="l" , ylim=c(0,.001) , xlab="demand", ylab="probability")
+# lead time = 1
+lines(x.seq, dnorm(x.seq , mean = (4+1)*250, sd = sqrt(4+1)*50 )*dbinom(1, 6, prob = 2/3), col=2 )
+# lead time = 2
+lines(x.seq, dnorm(x.seq , mean = (4+2)*250, sd = sqrt(4+2)*50 )*dbinom(2, 6, prob = 2/3), col=3 )
+# lead time = 3
+lines(x.seq, dnorm(x.seq , mean = (4+3)*250, sd = sqrt(4+3)*50 )*dbinom(3, 6, prob = 2/3), col=4 )
+# lead time = 4
+lines(x.seq, dnorm(x.seq , mean = (4+4)*250, sd = sqrt(4+4)*50 )*dbinom(4, 6, prob = 2/3), col=5)
+# lead time = 5
+lines(x.seq, dnorm(x.seq , mean = (4+5)*250, sd = sqrt(4+5)*50 )*dbinom(5, 6, prob = 2/3), col=6 )
+# lead time = 6
+lines(x.seq, dnorm(x.seq , mean = (4+6)*250, sd = sqrt(4+6)*50 )*dbinom(6, 6, prob = 2/3), col=7 )
+legend("topleft", legend=paste("L=",0:6,sep=""), col = 1:7, lwd=2 , bty="n", title="lead time") 
+```
+
+For each lead time realization, the corresponding 97%-quantile of the risk period demand can be computed. As the 97%-quantiles are non-overlapping, it suffices to calculate the 97%-quantile for the highest lead time ($L=6$ weeks). I.e., for $S$ follows $S^{\alpha} = (4+6) \cdot 250 + \sqrt{4+6} \cdot 50 \cdot 1.88 = 2797$. 
+
+<!-- ```{r, exe3-3, echo=FALSE} -->
+
+<!-- tS.inv.L.binom <- function( t = 4, S = 2797, l.ini, dem, p.binom = 2/3, n.binom = 6){ -->
+<!--   # n ... nb. periods -->
+<!--   # t ... order interval -->
+<!--   # S ... order level -->
+<!--   # l.ini ... initial stock -->
+<!--   # dem ... demand vector -->
+<!--   # L.lambda ... Poisson parameter/exp. lead time -->
+<!--   n <- length(dem) -->
+<!--   tmp.l.mat <- matrix(0, ncol = 6, nrow = n+1+n.binom) # initialize inventory -->
+<!--   colnames(tmp.l.mat) <- c("d","i","o", "ip", "x","del") -->
+<!--   # set period names -->
+<!--   rownames(tmp.l.mat) <- -n.binom:n  -->
+<!--   # initial stocks -->
+<!--   tmp.l.mat["0",c("i", "ip")] <- l.ini		 -->
+<!--   names(dem) <- 1:n -->
+<!--   tmp.l.mat[as.character(1:n),"d"] <- dem -->
+
+
+<!--   # calculate stocks -->
+<!--   for(i in 1:n){ -->
+<!--     tmp.l.mat[as.character(i), "i"] <- tmp.l.mat[as.character(i-1), "i"] - dem[as.character(i)] + tmp.l.mat[as.character(i), "del"] -->
+<!--     tmp.l.mat[as.character(i), "ip"] <- tmp.l.mat[as.character(i-1),"ip"] - dem[as.character(i)]  -->
+<!--     tmp.l.mat[as.character(i), "o"] <- tmp.l.mat[as.character(i-1), "o"] - tmp.l.mat[as.character(i), "del"] -->
+
+<!--     if(i %% t == 0){ -->
+<!--       tmp.l.mat[as.character(i), "x"] <- S - tmp.l.mat[as.character(i) ,"ip"] -->
+<!--       tmp.l.mat[as.character(i), "ip"] <- tmp.l.mat[as.character(i), "ip"] + tmp.l.mat[as.character(i), "x"] -->
+<!--       tmp.l.mat[as.character(i), "o"] <- tmp.l.mat[as.character(i), "o"] + tmp.l.mat[as.character(i), "x"] -->
+<!--       tmp.lead <- rbinom(1, size = n.binom, prob = p.binom) -->
+
+<!--       if(i + tmp.lead + 1 <= n){  -->
+<!--         tmp.l.mat[as.character(i + tmp.lead + 1), "del"] <- tmp.l.mat[as.character(i + tmp.lead + 1), "del"] + tmp.l.mat[as.character(i), "x"] -->
+<!--       } -->
+<!--     } -->
+<!--   } -->
+
+<!--   return(as.data.frame(tmp.l.mat)) -->
+<!-- } -->
+
+<!-- n <- 5000 -->
+<!-- dem <-  rnorm(n, 250, 50) -->
+
+<!-- res.sim.exp <- tS.inv.L.binom(dem = dem, l.ini = 2000, S = 2266) -->
+<!-- res.sim.app <- tS.inv.L.binom(dem = dem, l.ini = 2000, S = 2604) -->
+<!-- res.sim.pre <- tS.inv.L.binom(dem = dem, l.ini = 2000, S = 2797) -->
+
+<!-- stock.perf(res.sim.exp)$alpha -->
+<!-- stock.perf(res.sim.app)$alpha -->
+<!-- stock.perf(res.sim.pre)$alpha -->
+<!-- ``` -->
+
+
+
+

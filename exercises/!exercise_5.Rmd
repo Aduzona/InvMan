@@ -1,0 +1,82 @@
+---
+title: "Exercise 5 - Periodic review policy"
+author: "Thomas Kirschstein"
+subtitle: Inventory Management
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: true
+    number_sections: false
+---
+  
+```{r, setup, echo=F, include=T, error=FALSE, warning=FALSE, message=FALSE}
+library(DT)
+library(kableExtra)
+library(knitr)
+library(forecast)
+library(sarima)
+
+
+# function for calculating 1stES forecasts
+first.es <- function(y, alpha = .4,  initial = c(mean(y))){
+  
+  n <- length(y)
+  res <- matrix(NA, ncol=3, nrow=n+2)
+  rownames(res) <- 0:(n+1)
+  colnames(res) <- c("y","a","y.hat")
+  
+  res["0", c("a")] <- initial
+  res[2:(n+1),"y"] <- y
+  
+  for(i in 2:(nrow(res)-1) ){
+    res[i, "y.hat"] <- res[i-1, "a"] 
+    res[i, "a"] <- alpha * res[i, "y"] + (1 - alpha) * res[i, "y.hat"]
+  }
+  res[n+2, "y.hat"] <- res[n+1, "a"]
+  return(res)
+}
+
+```
+	
+# Periodic review with fixed lead time (I)
+
+An electronics retailer sells a specific part for hobbyists. The retailer expects a normally distributed weekly demand with $\mu  = 100$ and $\sigma=10$. The retailer orders replenishment each Friday after closing the shop. The order is received on the next Monday before re-opening the shop as the shop is closed during the weekend. 
+
+The retailer assumes stock holding cost rates of $c^{sh} = 0.5$ Euro per piece and week. The backorder cost rate is approximated at $c^{bo} = 3$ Euro per piece and week.
+
+1. What is the lead time and the critical ratio? Determine the cost-optimal order-up level $S$.
+2. What are the optimal total cost as well as $\alpha$ and $\beta$ service level for the solution from 1.?
+3. Assume now that the supplier delivers two week later. Recalculate the cost-optimal $S$.
+4. Based on the assumptions of 3., which order-up level $S$ is required to assure a $\beta$ service level of 97%.
+
+
+# Periodic review with fixed lead time  (II)
+
+In an aluminum producer consumes aluminum oxide as the core raw material. The following table shows the monthly aluminum oxide demand of the last two years and the forecast for the next month. 
+
+```{r, exe-2, echo=FALSE}
+set.seed(1234)
+ts <- sim_sarima(n=24, model = list(ar=c(-.8, -0.1), ma=-0.4, sar=0.5, sma=-0.3, iorder=0, siorder=0, nseasons=12, sigma2 = 50)) + 300
+ts <- ts(ts, deltat =1/12) 
+fc.ts <- first.es(ts, alpha = 0.5)
+colnames(fc.ts)[c(1,3)] <- c("demand","forecast")
+plot.ts(fc.ts[-1,1], type="b", col="black", xlab="month", ylab ="aluminum oxide demand [in tons]", pch=16)
+lines(fc.ts[-1,3], type="b", col="red",  pch=17)
+legend("topright", col=c("black","red"), pch=c(16,17), legend = c("demand","forecast") , bty="n")
+kable(round(fc.ts[-1,-2]), "pandoc")
+```
+
+Due to the large demand quantities, the aluminum oxide is transported by ship. Every month a shipment is scheduled and each order arrives three months after placing the order. For the upcoming year, an order-up level $S$ is to be determined based on the information above. Its assumed that the latest demand forecast is reliable for the expected demand of the next months. 
+
+1. Calculate $S$ such that a $\beta$ service level of 99% is reached. 
+2. Do you think the  outlined procedure for determining $S$ is reasonable? If you identify shortcomings, elaborate on them. 
+
+# Periodic review with stochastic lead time  
+
+A microchip manufacturer produces wafer based on monocrystalline silicon. The supply process for silicone is quite erratic as the order lead (given in weeks) varies according to Binomial distribution with $n=6$ and $p=\frac{2}{3}$. The weekly silicone demand (in kg) is assumed to be normally distributed and i.i.d. with $\mu = 250$ and $\sigma = 50$. Assume that every 4 weeks a silicone order is placed with the supplier and a $\alpha$ service level of 97% shall be assured. 
+
+1. Determine the order-up level $S$ when using the expected lead time to determine the risk period.
+2. Determine the order-up level $S$ when approximating the demand in the risk period with $\mu_{RP} = \mu_L \cdot \mu_y + T \cdot \mu_y$ and $\sigma_{RP} = \mu_L \cdot \sigma^2_y + \mu_y^2 \cdot \sigma_L^2 + T \cdot \sigma_y^2$.
+3. Determine the order-up level $S$ when explicitly taking into account the distribution of demand in the risk period.
