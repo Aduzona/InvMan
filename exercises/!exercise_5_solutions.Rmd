@@ -126,7 +126,7 @@ For a binomially distributed random variable, $\sigma^2$ is defined as $n\cdot p
 To assess the demand distribution in the risk period, we need to calculate the lead time probabilities using $f(k,n,p) = {n \choose k} \cdot p^k \cdot (1-p)^{n-k}$ and cumulative probability.
 
 ```{r, exe3-1, echo=FALSE}
-df <- cbind(0:5, round(dbinom(0:6, 6, prob = 2/3),3), round(pbinom(0:6, 6, prob = 2/3),3) )
+df <- cbind(0:6, round(dbinom(0:6, 6, prob = 2/3),3), round(pbinom(0:6, 6, prob = 2/3),3) )
 colnames(df) <- c("lead time (weeks)","probability f(k,n,p)","cum. prob. F(k,n,p)")
 kable(df, "pandoc")
 ```
@@ -154,59 +154,66 @@ legend("topleft", legend=paste("L=",0:6,sep=""), col = 1:7, lwd=2 , bty="n", tit
 
 For each lead time realization, the corresponding 97%-quantile of the risk period demand can be computed. As the 97%-quantiles are non-overlapping, it suffices to calculate the 97%-quantile for the highest lead time ($L=6$ weeks). I.e., for $S$ follows $S^{\alpha} = (4+6) \cdot 250 + \sqrt{4+6} \cdot 50 \cdot 1.88 = 2797$. 
 
-<!-- ```{r, exe3-3, echo=FALSE} -->
+Simulating the stock performance for 5000 weeks leads to the following $\alpha$ service levels:
 
-<!-- tS.inv.L.binom <- function( t = 4, S = 2797, l.ini, dem, p.binom = 2/3, n.binom = 6){ -->
-<!--   # n ... nb. periods -->
-<!--   # t ... order interval -->
-<!--   # S ... order level -->
-<!--   # l.ini ... initial stock -->
-<!--   # dem ... demand vector -->
-<!--   # L.lambda ... Poisson parameter/exp. lead time -->
-<!--   n <- length(dem) -->
-<!--   tmp.l.mat <- matrix(0, ncol = 6, nrow = n+1+n.binom) # initialize inventory -->
-<!--   colnames(tmp.l.mat) <- c("d","i","o", "ip", "x","del") -->
-<!--   # set period names -->
-<!--   rownames(tmp.l.mat) <- -n.binom:n  -->
-<!--   # initial stocks -->
-<!--   tmp.l.mat["0",c("i", "ip")] <- l.ini		 -->
-<!--   names(dem) <- 1:n -->
-<!--   tmp.l.mat[as.character(1:n),"d"] <- dem -->
+```{r, exe3-3, echo=FALSE}
 
-
-<!--   # calculate stocks -->
-<!--   for(i in 1:n){ -->
-<!--     tmp.l.mat[as.character(i), "i"] <- tmp.l.mat[as.character(i-1), "i"] - dem[as.character(i)] + tmp.l.mat[as.character(i), "del"] -->
-<!--     tmp.l.mat[as.character(i), "ip"] <- tmp.l.mat[as.character(i-1),"ip"] - dem[as.character(i)]  -->
-<!--     tmp.l.mat[as.character(i), "o"] <- tmp.l.mat[as.character(i-1), "o"] - tmp.l.mat[as.character(i), "del"] -->
-
-<!--     if(i %% t == 0){ -->
-<!--       tmp.l.mat[as.character(i), "x"] <- S - tmp.l.mat[as.character(i) ,"ip"] -->
-<!--       tmp.l.mat[as.character(i), "ip"] <- tmp.l.mat[as.character(i), "ip"] + tmp.l.mat[as.character(i), "x"] -->
-<!--       tmp.l.mat[as.character(i), "o"] <- tmp.l.mat[as.character(i), "o"] + tmp.l.mat[as.character(i), "x"] -->
-<!--       tmp.lead <- rbinom(1, size = n.binom, prob = p.binom) -->
-
-<!--       if(i + tmp.lead + 1 <= n){  -->
-<!--         tmp.l.mat[as.character(i + tmp.lead + 1), "del"] <- tmp.l.mat[as.character(i + tmp.lead + 1), "del"] + tmp.l.mat[as.character(i), "x"] -->
-<!--       } -->
-<!--     } -->
-<!--   } -->
-
-<!--   return(as.data.frame(tmp.l.mat)) -->
-<!-- } -->
-
-<!-- n <- 5000 -->
-<!-- dem <-  rnorm(n, 250, 50) -->
-
-<!-- res.sim.exp <- tS.inv.L.binom(dem = dem, l.ini = 2000, S = 2266) -->
-<!-- res.sim.app <- tS.inv.L.binom(dem = dem, l.ini = 2000, S = 2604) -->
-<!-- res.sim.pre <- tS.inv.L.binom(dem = dem, l.ini = 2000, S = 2797) -->
-
-<!-- stock.perf(res.sim.exp)$alpha -->
-<!-- stock.perf(res.sim.app)$alpha -->
-<!-- stock.perf(res.sim.pre)$alpha -->
-<!-- ``` -->
+tS.inv.L.binom <- function( t = 4, S = 2797, l.ini, dem, p.binom = 2/3, n.binom = 6){
+  # n ... nb. periods
+  # t ... order interval
+  # S ... order level
+  # l.ini ... initial stock
+  # dem ... demand vector
+  # L.lambda ... Poisson parameter/exp. lead time
+  n <- length(dem)
+  tmp.l.mat <- matrix(0, ncol = 6, nrow = n+1+n.binom) # initialize inventory
+  colnames(tmp.l.mat) <- c("d","i","o", "ip", "x","del")
+  # set period names
+  rownames(tmp.l.mat) <- -n.binom:n
+  # initial stocks
+  tmp.l.mat["0",c("i", "ip")] <- l.ini
+  names(dem) <- 1:n
+  tmp.l.mat[as.character(1:n),"d"] <- dem
 
 
+  # calculate stocks
+  for(i in 1:n){
+    tmp.l.mat[as.character(i), "i"] <- tmp.l.mat[as.character(i-1), "i"] - dem[as.character(i)] + tmp.l.mat[as.character(i), "del"]
+    tmp.l.mat[as.character(i), "ip"] <- tmp.l.mat[as.character(i-1),"ip"] - dem[as.character(i)]
+    tmp.l.mat[as.character(i), "o"] <- tmp.l.mat[as.character(i-1), "o"] - tmp.l.mat[as.character(i), "del"]
 
+    if(i %% t == 0){
+      tmp.l.mat[as.character(i), "x"] <- S - tmp.l.mat[as.character(i) ,"ip"]
+      tmp.l.mat[as.character(i), "ip"] <- tmp.l.mat[as.character(i), "ip"] + tmp.l.mat[as.character(i), "x"]
+      tmp.l.mat[as.character(i), "o"] <- tmp.l.mat[as.character(i), "o"] + tmp.l.mat[as.character(i), "x"]
+      tmp.lead <- rbinom(1, size = n.binom, prob = p.binom)
+
+      if(i + tmp.lead + 1 <= n){
+        tmp.l.mat[as.character(i + tmp.lead + 1), "del"] <- tmp.l.mat[as.character(i + tmp.lead + 1), "del"] + tmp.l.mat[as.character(i), "x"]
+      }
+    }
+  }
+
+  return(as.data.frame(tmp.l.mat))
+}
+
+n <- 5100
+dem <-  rnorm(n, 250, 50)
+set.seed(12345)
+res.sim.exp <- tS.inv.L.binom(dem = dem, l.ini = 2000, S = 2266)
+res.sim.app <- tS.inv.L.binom(dem = dem, l.ini = 2000, S = 2604)
+res.sim.pre <- tS.inv.L.binom(dem = dem, l.ini = 2000, S = 2797)
+
+res.mat <- matrix(0, ncol = 3, nrow = 1)
+res.mat[1,] <- c(stock.perf(res.sim.exp, cutoff = 100)$alpha*100,
+stock.perf(res.sim.app, cutoff = 100)$alpha*100,
+stock.perf(res.sim.pre, cutoff = 100)$alpha*100)
+
+
+kable(round(res.mat,2), 
+      col.names = c("fixed $Y^{RP}$ ($S=2266$)","approx. $Y^{RP}$  ($S=2604$)", "real $Y^{RP}$ ($S=2797$)"),
+      booktabs = T, format = "markdown", row.names = FALSE)
+```
+
+Obviously, taking into account the lead time distribution precisely yields an order-up level $S$ that meets/exceeds the desired service level. Lower values fail to meet the required level. Can you figure out what the reason why the $\alpha$ service level is exceeded for $S=2797$?
 
