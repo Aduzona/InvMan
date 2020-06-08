@@ -1,0 +1,113 @@
+---
+title: "Exercise 6 - Continuous review policy"
+author: "Thomas Kirschstein"
+subtitle: Inventory Management
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: true
+    number_sections: false
+  pdf_document: default
+---
+  
+```{r, setup, echo=F, include=T, error=FALSE, warning=FALSE, message=FALSE}
+library(DT)
+library(kableExtra)
+library(knitr)
+library(forecast)
+library(sarima)
+library(gsl)
+
+# function for calculating 1stES forecasts
+first.es <- function(y, alpha = .4,  initial = c(mean(y))){
+  
+  n <- length(y)
+  res <- matrix(NA, ncol=3, nrow=n+2)
+  rownames(res) <- 0:(n+1)
+  colnames(res) <- c("y","a","y.hat")
+  
+  res["0", c("a")] <- initial
+  res[2:(n+1),"y"] <- y
+  
+  for(i in 2:(nrow(res)-1) ){
+    res[i, "y.hat"] <- res[i-1, "a"] 
+    res[i, "a"] <- alpha * res[i, "y"] + (1 - alpha) * res[i, "y.hat"]
+  }
+  res[n+2, "y.hat"] <- res[n+1, "a"]
+  return(res)
+}
+
+```
+	
+# Continuous review with fixed lead time (I)
+
+The weekly demand (assuming 5 workdays per week) of bananas in supermarket is normally distributed with $\mu=50$ [kg] and $\sigma=8$. Ordering cost are estimated at $80$ Euro, the holding cost rate is $c^{sh}=0.05$ Euro per kg and week, and backorder cost rate is assumed to be $c^{bo}=0.15$ Euro per kg and week.
+
+1. Calculate the cost-optimal order quantity $q$ and re-order level $s$ assuming an order lead time of 1 week and a minimum $\beta$ service level of 97.5%.
+2. What happens with the re-order level $s$ if the order lead time reduces to 3 days? (no calculations required)
+
+# Continuous review with fixed lead time  (II)
+
+A warehouse operator is observing the demand of a particular product. The operator estimates an expected daily demand of 10 and a standard deviation of 5. However, she is not sure which underlying demand distribution is appropriate; a normal distribution or a Gamma distribution are considered as likely candidates. The operator pursues a $(s,q)$ policy for the product which shows a reorder time of 1 day. 
+
+Determine the re-order point $s$ for a normal and Gamma distribution of demand assuming that an $\alpha$ or a $\beta$ service level of 99% should by realized.
+
+Hint: Use the following tabulated values of the Gamma distribution.
+
+```{r, echo=F, message=FALSE, error=FALSE, warning=FALSE}
+mu <- 10
+sd <- 5
+alpha <- mu^2/sd^2
+beta <- mu/sd^2
+x.seq <- seq(10 ,40, length.out = 60)
+# shape = alpha, rate = beta
+y.vec <- alpha/beta*(1-pgamma(x.seq, shape = alpha+1, rate = beta)) - x.seq * (1-pgamma(x.seq, shape = alpha, rate = beta))
+q.vec <- pgamma(x.seq, shape = alpha, rate = beta)
+
+res.mat <- matrix(0, ncol = 9, nrow = 20)
+res.mat[,c(1,4,7)] <- x.seq
+res.mat[,c(2,5,8)] <- q.vec
+res.mat[,c(3,6,9)] <- y.vec
+
+
+kable(round(res.mat,4), 
+      col.names = rep( c("s","$P(Y^{\\Gamma(\\alpha,\\beta)}\\leq s)$", "$L\\left(Y^{\\Gamma(\\alpha,\\beta)},s \\right)$"), times= 3),
+      booktabs = T, format = "markdown", row.names = FALSE, padding = 5)
+
+```
+
+
+# Continuous review with stochastic lead time  
+
+Assume that the daily demand of cement on a construction side is Gamma distributed. The expected daily demand is estimated to be 8 tons and the standard deviation is supposed to be 6 tons. When new cement is ordered, the lead time varies. Based on historical records, with 20% probability the delivery arrives after 2 days. A delay of 3 days is observed in 50% of all cases and with 30% probability 4 days expire before the shipment arrives. 
+
+1. Determine the distributional parameters for all three different lead time realizations.  
+2. Assume an $\alpha$ service level of 99% should be achieved. Which reorder level $s$ should be chosen?
+
+Hint: Choose the correct values from the following tabulated values of some Gamma distributions.
+
+```{r, echo=F, message=FALSE, error=FALSE, warning=FALSE}
+mu <- 8
+sd <- 6
+lt <- 1:5 
+alpha <- mu^2/sd^2
+beta <- mu/sd^2
+
+# shape = alpha, rate = beta
+q.vec <- lapply(lt , function(x){
+  x.seq <- seq(8*x , 8*x^(2/3)*4, length.out = 25)
+  cbind(x.seq , pgamma(x.seq, shape = x * alpha, rate = beta)  )
+} )
+
+res.mat <- do.call("cbind", q.vec)
+
+cl.nam.vec <- rep("s", ncol(res.mat) )
+cl.nam.vec[(1:length(cl.nam.vec)) %% 2 == 0] <- paste("$P(Y^{\\Gamma(\\alpha \\cdot ",lt ,",\\beta)}\\leq s)$", sep="")
+
+kable(round(res.mat,4), 
+      col.names = cl.nam.vec,
+      booktabs = T, format = "markdown", row.names = FALSE, padding = 5)
+
+```
+
