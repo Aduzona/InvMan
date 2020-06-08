@@ -3,12 +3,12 @@ title: "Exercise 6 - Continuous review policy"
 author: "Thomas Kirschstein"
 subtitle: Inventory Management
 output:
+  pdf_document: default
   html_document:
     df_print: paged
     toc: yes
     toc_float: true
     number_sections: false
-  pdf_document: default
 ---
   
 ```{r, setup, echo=F, include=T, error=FALSE, warning=FALSE, message=FALSE}
@@ -42,7 +42,7 @@ first.es <- function(y, alpha = .4,  initial = c(mean(y))){
 	
 # Continuous review with fixed lead time (I)
 
-The weekly demand (assuming 5 workdays per week) of bananas in supermarket is normally distributed with $\mu=50$ [kg] and $\sigma=8$. Ordering cost are estimated at $80$ Euro, the holding cost rate is $c^{sh}=0.05$ Euro per kg and week, and backorder cost rate is assumed to be $c^{bo}=0.15$ Euro per kg and week.
+The weekly demand (assuming 5 workdays per week) of bananas in supermarket is normally distributed with $\mu=50$ [kg] and $\sigma=8$. Ordering cost are estimated at $80$ Euro and the holding cost rate is $c^{sh}=0.05$ Euro per kg and week.
 
 1. Calculate the cost-optimal order quantity $q$ and re-order level $s$ assuming an order lead time of 1 week and a minimum $\beta$ service level of 97.5%.
 2. What happens with the re-order level $s$ if the order lead time reduces to 3 days? (no calculations required)
@@ -51,7 +51,7 @@ The weekly demand (assuming 5 workdays per week) of bananas in supermarket is no
 
 A warehouse operator is observing the demand of a particular product. The operator estimates an expected daily demand of 10 and a standard deviation of 5. However, she is not sure which underlying demand distribution is appropriate; a normal distribution or a Gamma distribution are considered as likely candidates. The operator pursues a $(s,q)$ policy for the product which shows a reorder time of 1 day. 
 
-Determine the re-order point $s$ for a normal and Gamma distribution of demand assuming that an $\alpha$ or a $\beta$ service level of 99% should by realized.
+Determine the re-order point $s$ for a normal and Gamma distribution of demand assuming that an $\alpha$ or a $\beta$ service level of 99% should by realized. The order quantity is set to $q=80$ units. 
 
 Hint: Use the following tabulated values of the Gamma distribution.
 
