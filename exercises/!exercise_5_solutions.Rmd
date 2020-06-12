@@ -18,6 +18,40 @@ library(forecast)
 library(sarima)
 
 
+tS.inv.L <- function(t = 1, S = 100, l.ini, dem, L = 2){
+  # n ... number of periods
+  n <- length(dem) 
+  # t ... order interval
+  # S ... order level
+  # l.ini ... initial stock
+  # dem ... demand
+  
+  tmp.l.mat <- matrix(0, ncol = 6, nrow = n+1+L) # initialize result matrix
+  colnames(tmp.l.mat) <- c("d","i","o", "ip", "x","del")
+  rownames(tmp.l.mat) <- -L:n # set period names
+  names(dem) <- 1:n
+  tmp.l.mat["0",c("i", "ip")] <- l.ini		# set initial stock
+  tmp.l.mat[as.character(1:n),"d"] <- dem # initialize demand
+  
+  # calculate stocks
+  for(i in 1:n){
+    tmp.l.mat[as.character(i), "i"] <- tmp.l.mat[as.character(i-1), "i"] - dem[as.character(i)] + tmp.l.mat[as.character(i), "del"]
+    tmp.l.mat[as.character(i), "ip"] <- tmp.l.mat[as.character(i-1),"ip"] - dem[as.character(i)] 
+    tmp.l.mat[as.character(i), "o"] <- tmp.l.mat[as.character(i-1), "o"] - tmp.l.mat[as.character(i), "del"]
+    
+    if(i %% t == 0){
+      tmp.l.mat[as.character(i), "x"] <- S - tmp.l.mat[as.character(i) ,"ip"]
+      tmp.l.mat[as.character(i), "ip"] <- tmp.l.mat[as.character(i), "ip"] + tmp.l.mat[as.character(i), "x"]
+      tmp.l.mat[as.character(i), "o"] <- tmp.l.mat[as.character(i), "o"] + tmp.l.mat[as.character(i), "x"]
+      if(i + L + 1 <= n){ 
+        tmp.l.mat[as.character(i + L + 1), "del"] <- tmp.l.mat[as.character(i + L + 1), "del"] + tmp.l.mat[as.character(i), "x"]
+      }
+    }
+  }
+  
+  return(as.data.frame(tmp.l.mat))
+}
+
 # calculate performance measures
 stock.perf <- function(res, c.bo = 1 , c.sh = .5, c.or = 0, cutoff = 10){
   n <- nrow(res)
@@ -74,6 +108,8 @@ Lead time is 0 and the risk period is one week as the shop is closed at the week
 
 The optimal expected cost (at the end of the order cycle) is $E(C(S^*)) = (c^{sh} + c^{bo}) \cdot \sigma \cdot \varphi(\Phi^{-1}(CR)) =  3.5 \cdot 10 \cdot \varphi(1.068) \approx$ `r round(3.5*10*dnorm(qnorm(3/3.5)),2)` Euro per week.
 
+The $\alpha$ service level is equal to the critical ratio (i.e., 85.71%). As $RP=T=1$, this holds for each perspective (basic period, risk period and order interval). The $\beta$ service level requires to calculate the expected loss $L(Y^{RP},S)$ which is `r round(v.fun.direct.norm(100+10*1.068, mu = 100, sigma = 10),4)`. Thus, it follows $\beta=1-\frac{L(Y^{RP},S)}{\mu}=$ `r 100*round(1-v.fun.direct.norm(100+10*1.068, mu = 100, sigma = 10)/100,3)`%. 
+
 3. Assume now that the supplier delivers two week later. Recalculate the cost-optimal $S$.
 
 Now the risk period is 3 weeks. Thus, $\mu_{RP} = 3\cdot 100= 300$ and $\sigma_{RP}=\sqrt{3} \cdot 10\approx 17.32$ such that  $S^* = \mu_{RP} + \sigma_{RP} \cdot \Phi^{-1}(0.8571)=300+17.32 \cdot 1.068 \approx$ `r round(300+17.32*qnorm(3/3.5))` pieces.
@@ -94,6 +130,7 @@ set.seed(1234)
 ts <- sim_sarima(n=24, model = list(ar=c(-.8, -0.1), ma=-0.4, sar=0.5, sma=-0.3, iorder=0, siorder=0, nseasons=12, sigma2 = 50)) + 300
 ts <- ts(ts, deltat =1/12) 
 fc.ts <- first.es(ts, alpha = 0.5)
+fc.ts <- round(fc.ts)
 fc.ts <- cbind(fc.ts, (fc.ts[,1] -  fc.ts[,3])^2)
 colnames(fc.ts)[c(1,3,4)] <- c("demand","forecast","sq.forecast.error")
 fc.rmse <- sqrt(mean(fc.ts[-c(1,26), "sq.forecast.error"]))
@@ -115,7 +152,7 @@ A microchip manufacturer produces wafer based on monocrystalline silicon. The su
 
 1. Determine the order-up level $S$ when using the expected lead time to determine the risk period.
 
-Expected lead time is $n \cdot p = 4$ weeks. Therefore, the rsik period is 4+4=8 weeks. The safety stock factor is $\Phi^{-1}(0.97)=1.88$. Thus, it follows $S^{\alpha}= 8 \cdot 250 + \sqrt 8 \cdot 50 \cdot 1.88 \approx 2266$ kg.
+Expected lead time is $n \cdot p = 4$ weeks. Therefore, the risk period is 4+4=8 weeks. The safety stock factor is $\Phi^{-1}(0.97)=1.88$. Thus, it follows $S^{\alpha}= 8 \cdot 250 + \sqrt 8 \cdot 50 \cdot 1.88 \approx 2266$ kg.
 
 2. Determine the order-up level $S$ when approximating the demand in the risk period with $\mu_{RP} = \mu_L \cdot \mu_y + T \cdot \mu_y$ and $\sigma_{RP} = \mu_L \cdot \sigma^2_y + \mu_y^2 \cdot \sigma_L^2 + T \cdot \sigma_y^2$.
 
@@ -127,7 +164,7 @@ To assess the demand distribution in the risk period, we need to calculate the l
 
 ```{r, exe3-1, echo=FALSE}
 df <- cbind(0:6, round(dbinom(0:6, 6, prob = 2/3),3), round(pbinom(0:6, 6, prob = 2/3),3) )
-colnames(df) <- c("lead time (weeks)","probability f(k,n,p)","cum. prob. F(k,n,p)")
+colnames(df) <- c("lead time (weeks)","probability $f(k,n,p)$","cum. prob. $F(k,n,p)$")
 kable(df, "pandoc")
 ```
 
@@ -198,16 +235,16 @@ tS.inv.L.binom <- function( t = 4, S = 2797, l.ini, dem, p.binom = 2/3, n.binom 
 }
 
 n <- 5100
-dem <-  rnorm(n, 250, 50)
 set.seed(12345)
+dem <-  rnorm(n, 250, 50)
 res.sim.exp <- tS.inv.L.binom(dem = dem, l.ini = 2000, S = 2266)
 res.sim.app <- tS.inv.L.binom(dem = dem, l.ini = 2000, S = 2604)
 res.sim.pre <- tS.inv.L.binom(dem = dem, l.ini = 2000, S = 2797)
 
 res.mat <- matrix(0, ncol = 3, nrow = 1)
-res.mat[1,] <- c(stock.perf(res.sim.exp, cutoff = 100)$alpha*100,
-stock.perf(res.sim.app, cutoff = 100)$alpha*100,
-stock.perf(res.sim.pre, cutoff = 100)$alpha*100)
+res.mat[1,] <- c((1-sum(res.sim.exp$i<0)/n*4)*100,
+(1-sum(res.sim.app$i<0)/n*4)*100,
+(1-sum(res.sim.pre$i<0)/n*4)*100)
 
 
 kable(round(res.mat,2), 
@@ -216,4 +253,20 @@ kable(round(res.mat,2),
 ```
 
 Obviously, taking into account the lead time distribution precisely yields an order-up level $S$ that meets/exceeds the desired service level. Lower values fail to meet the required level. Can you figure out what the reason why the $\alpha$ service level is exceeded for $S=2797$?
+
+Explanation:
+The reason that only in 8.8% of all cases, a lead time of $L=6$ occurs. Thus, the probability of observing a demand of $Y^{RP} > 2797$ is not 3% but $0.03 \cdot 0.088 = 0.00264$. Thus, to correct this, one can correct the quantile to $1-\frac{(1-\alpha)}{f(6,6,2/3)}=0.659$. Thus, the 66%-quantile of the demand distribution for $L=6$ is $S^{\alpha} = (6+4)\cdot 250 + \sqrt{10} \cdot 50 \cdot 0.41 \approx 2565$. However, this approach disregards the fact, that also for $L=5$ (and also the other realizations of $L$) a non-zero probability for a demand larger than 2565 exist (to be precise this probability is about $0.005$). 
+
+In general, $P(Y^{RP} \leq S) = \sum_{k=0}^n f(k,n,p) \cdot P(Y^k \leq S)$ as $Y^k \sim N( (k+4) \cdot \mu , (k+4) \cdot \sigma^2)$ it follows $P(Y^k \leq S) = \Phi\left(\frac{S-(k+4) \cdot \mu}{ \sqrt{k+4} \cdot \sigma} \right)$. Thus, an $\alpha$ service level of 97% results when $0.97 =  \sum_{k=0}^n f(k,n,p) \cdot \Phi\left(\frac{S-(k+4) \cdot \mu}{ \sqrt{k+4} \cdot \sigma} \right)$. However, this equation needs to be solved numerically. Doing so yields $S$:
+
+```{r, exe3-4, echo=FALSE}
+
+opt.alpha.fun <- function(S, alpha = 0.97) (sum(dbinom(0:6, 6, prob = 2/3)  * pnorm(S, mean = (0:6 +4)*250 , sd = sqrt(0:6 +4)*50 ) ) - alpha )^2
+
+res <- optim(par = 2000, fn = opt.alpha.fun , method = "L-BFGS-B", lower = 1000, upper = 3000)
+round(res$par)
+# check empirically
+#res.sim.exact <- tS.inv.L.binom(dem = dem, l.ini = 2000, S = res$par)
+#(1-sum(res.sim.exact$i<0)/n*4)*100
+```
 

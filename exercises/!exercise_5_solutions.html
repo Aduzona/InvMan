@@ -2797,6 +2797,7 @@ div.tocify {
 <li>What are the optimal total cost as well as <span class="math inline">\(\alpha\)</span> and <span class="math inline">\(\beta\)</span> service level for the solution from 1.?</li>
 </ol>
 <p>The optimal expected cost (at the end of the order cycle) is <span class="math inline">\(E(C(S^*)) = (c^{sh} + c^{bo}) \cdot \sigma \cdot \varphi(\Phi^{-1}(CR)) = 3.5 \cdot 10 \cdot \varphi(1.068) \approx\)</span> 7.9 Euro per week.</p>
+<p>The <span class="math inline">\(\alpha\)</span> service level is equal to the critical ratio (i.e., 85.71%). As <span class="math inline">\(RP=T=1\)</span>, this holds for each perspective (basic period, risk period and order interval). The <span class="math inline">\(\beta\)</span> service level requires to calculate the expected loss <span class="math inline">\(L(Y^{RP},S)\)</span> which is 0.7307. Thus, it follows <span class="math inline">\(\beta=1-\frac{L(Y^{RP},S)}{\mu}=\)</span> 99.3%.</p>
 <ol start="3" style="list-style-type: decimal">
 <li>Assume now that the supplier delivers two week later. Recalculate the cost-optimal <span class="math inline">\(S\)</span>.</li>
 </ol>
@@ -2824,122 +2825,122 @@ div.tocify {
 <tr class="odd">
 <td align="right">232</td>
 <td align="right">303</td>
-<td align="right">5004</td>
+<td align="right">5041</td>
 </tr>
 <tr class="even">
 <td align="right">370</td>
 <td align="right">268</td>
-<td align="right">10525</td>
+<td align="right">10404</td>
 </tr>
 <tr class="odd">
 <td align="right">406</td>
 <td align="right">319</td>
-<td align="right">7609</td>
+<td align="right">7569</td>
 </tr>
 <tr class="even">
 <td align="right">206</td>
 <td align="right">363</td>
-<td align="right">24552</td>
+<td align="right">24649</td>
 </tr>
 <tr class="odd">
 <td align="right">345</td>
 <td align="right">284</td>
-<td align="right">3711</td>
+<td align="right">3721</td>
 </tr>
 <tr class="even">
 <td align="right">349</td>
 <td align="right">315</td>
-<td align="right">1173</td>
+<td align="right">1156</td>
 </tr>
 <tr class="odd">
 <td align="right">294</td>
 <td align="right">332</td>
-<td align="right">1442</td>
+<td align="right">1444</td>
 </tr>
 <tr class="even">
 <td align="right">294</td>
 <td align="right">313</td>
-<td align="right">371</td>
+<td align="right">361</td>
 </tr>
 <tr class="odd">
 <td align="right">293</td>
 <td align="right">303</td>
-<td align="right">97</td>
+<td align="right">100</td>
 </tr>
 <tr class="even">
 <td align="right">277</td>
 <td align="right">298</td>
-<td align="right">453</td>
+<td align="right">441</td>
 </tr>
 <tr class="odd">
 <td align="right">296</td>
 <td align="right">288</td>
-<td align="right">67</td>
+<td align="right">64</td>
 </tr>
 <tr class="even">
 <td align="right">273</td>
 <td align="right">292</td>
-<td align="right">367</td>
+<td align="right">361</td>
 </tr>
 <tr class="odd">
 <td align="right">285</td>
 <td align="right">282</td>
-<td align="right">6</td>
+<td align="right">9</td>
 </tr>
 <tr class="even">
 <td align="right">320</td>
 <td align="right">283</td>
-<td align="right">1363</td>
+<td align="right">1369</td>
 </tr>
 <tr class="odd">
 <td align="right">368</td>
 <td align="right">302</td>
-<td align="right">4325</td>
+<td align="right">4356</td>
 </tr>
 <tr class="even">
 <td align="right">245</td>
 <td align="right">335</td>
-<td align="right">8019</td>
+<td align="right">8100</td>
 </tr>
 <tr class="odd">
 <td align="right">321</td>
 <td align="right">290</td>
-<td align="right">970</td>
+<td align="right">961</td>
 </tr>
 <tr class="even">
 <td align="right">321</td>
 <td align="right">306</td>
-<td align="right">230</td>
+<td align="right">225</td>
 </tr>
 <tr class="odd">
 <td align="right">298</td>
 <td align="right">313</td>
-<td align="right">217</td>
+<td align="right">225</td>
 </tr>
 <tr class="even">
 <td align="right">316</td>
 <td align="right">306</td>
-<td align="right">107</td>
+<td align="right">100</td>
 </tr>
 <tr class="odd">
 <td align="right">276</td>
 <td align="right">311</td>
-<td align="right">1226</td>
+<td align="right">1225</td>
 </tr>
 <tr class="even">
 <td align="right">301</td>
 <td align="right">293</td>
-<td align="right">53</td>
+<td align="right">64</td>
 </tr>
 <tr class="odd">
 <td align="right">289</td>
 <td align="right">297</td>
-<td align="right">70</td>
+<td align="right">64</td>
 </tr>
 <tr class="even">
 <td align="right">299</td>
 <td align="right">293</td>
-<td align="right">33</td>
+<td align="right">36</td>
 </tr>
 </tbody>
 </table>
@@ -2960,7 +2961,7 @@ div.tocify {
 <ol style="list-style-type: decimal">
 <li>Determine the order-up level <span class="math inline">\(S\)</span> when using the expected lead time to determine the risk period.</li>
 </ol>
-<p>Expected lead time is <span class="math inline">\(n \cdot p = 4\)</span> weeks. Therefore, the rsik period is 4+4=8 weeks. The safety stock factor is <span class="math inline">\(\Phi^{-1}(0.97)=1.88\)</span>. Thus, it follows <span class="math inline">\(S^{\alpha}= 8 \cdot 250 + \sqrt 8 \cdot 50 \cdot 1.88 \approx 2266\)</span> kg.</p>
+<p>Expected lead time is <span class="math inline">\(n \cdot p = 4\)</span> weeks. Therefore, the risk period is 4+4=8 weeks. The safety stock factor is <span class="math inline">\(\Phi^{-1}(0.97)=1.88\)</span>. Thus, it follows <span class="math inline">\(S^{\alpha}= 8 \cdot 250 + \sqrt 8 \cdot 50 \cdot 1.88 \approx 2266\)</span> kg.</p>
 <ol start="2" style="list-style-type: decimal">
 <li>Determine the order-up level <span class="math inline">\(S\)</span> when approximating the demand in the risk period with <span class="math inline">\(\mu_{RP} = \mu_L \cdot \mu_y + T \cdot \mu_y\)</span> and <span class="math inline">\(\sigma_{RP} = \mu_L \cdot \sigma^2_y + \mu_y^2 \cdot \sigma_L^2 + T \cdot \sigma_y^2\)</span>.</li>
 </ol>
@@ -2973,8 +2974,8 @@ div.tocify {
 <thead>
 <tr class="header">
 <th align="right">lead time (weeks)</th>
-<th align="right">probability f(k,n,p)</th>
-<th align="right">cum. prob. F(k,n,p)</th>
+<th align="right">probability <span class="math inline">\(f(k,n,p)\)</span></th>
+<th align="right">cum. prob. <span class="math inline">\(F(k,n,p)\)</span></th>
 </tr>
 </thead>
 <tbody>
@@ -3029,13 +3030,16 @@ div.tocify {
 </thead>
 <tbody>
 <tr class="odd">
-<td align="right">79.15</td>
-<td align="right">95.13</td>
-<td align="right">98.08</td>
+<td align="right">72.55</td>
+<td align="right">97.41</td>
+<td align="right">99.76</td>
 </tr>
 </tbody>
 </table>
 <p>Obviously, taking into account the lead time distribution precisely yields an order-up level <span class="math inline">\(S\)</span> that meets/exceeds the desired service level. Lower values fail to meet the required level. Can you figure out what the reason why the <span class="math inline">\(\alpha\)</span> service level is exceeded for <span class="math inline">\(S=2797\)</span>?</p>
+<p>Explanation: The reason that only in 8.8% of all cases, a lead time of <span class="math inline">\(L=6\)</span> occurs. Thus, the probability of observing a demand of <span class="math inline">\(Y^{RP} &gt; 2797\)</span> is not 3% but <span class="math inline">\(0.03 \cdot 0.088 = 0.00264\)</span>. Thus, to correct this, one can correct the quantile to <span class="math inline">\(1-\frac{(1-\alpha)}{f(6,6,2/3)}=0.659\)</span>. Thus, the 66%-quantile of the demand distribution for <span class="math inline">\(L=6\)</span> is <span class="math inline">\(S^{\alpha} = (6+4)\cdot 250 + \sqrt{10} \cdot 50 \cdot 0.41 \approx 2565\)</span>. However, this approach disregards the fact, that also for <span class="math inline">\(L=5\)</span> (and also the other realizations of <span class="math inline">\(L\)</span>) a non-zero probability for a demand larger than 2565 exist (to be precise this probability is about <span class="math inline">\(0.005\)</span>).</p>
+<p>In general, <span class="math inline">\(P(Y^{RP} \leq S) = \sum_{k=0}^n f(k,n,p) \cdot P(Y^k \leq S)\)</span> as <span class="math inline">\(Y^k \sim N( (k+4) \cdot \mu , (k+4) \cdot \sigma^2)\)</span> it follows <span class="math inline">\(P(Y^k \leq S) = \Phi\left(\frac{S-(k+4) \cdot \mu}{ \sqrt{k+4} \cdot \sigma} \right)\)</span>. Thus, an <span class="math inline">\(\alpha\)</span> service level of 97% results when <span class="math inline">\(0.97 = \sum_{k=0}^n f(k,n,p) \cdot \Phi\left(\frac{S-(k+4) \cdot \mu}{ \sqrt{k+4} \cdot \sigma} \right)\)</span>. However, this equation needs to be solved numerically. Doing so yields <span class="math inline">\(S\)</span>:</p>
+<pre><code>## [1] 2582</code></pre>
 </div>
 
 
