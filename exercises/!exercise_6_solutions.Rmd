@@ -1,0 +1,245 @@
+---
+title: "Solution Exercise 6 - Continuous review policy"
+author: "Thomas Kirschstein"
+subtitle: Inventory Management
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: true
+    number_sections: false
+---
+  
+```{r, setup, echo=F, include=T, error=FALSE, warning=FALSE, message=FALSE}
+library(DT)
+library(kableExtra)
+library(knitr)
+library(forecast)
+library(sarima)
+library(gsl)
+
+# sq inventory simulation
+sq.inv.L <- function(d, s, q, l.ini, n, L){
+  
+  tmp.mat <- matrix(0, nrow= n+1+L, ncol= 5 )
+  colnames(tmp.mat) <- c("demand","inv.level","inv.pos", "order", "delivery")
+  
+  tmp.mat[,"demand"] <- c(0,d,rep(0,L))
+  tmp.mat[1,"Lagerbestand"] <- l.ini
+  tmp.mat[1,"inv.pos"] <- l.ini
+  
+  for(i in 2:(n+1)){
+    
+    if(tmp.mat[i-1, "inv.pos"] <= s){
+      tmp.mat[i, "order"] <- q
+      tmp.mat[i+L, "delivery"] <- q
+    }
+    
+    tmp.mat[i, "inv.pos"] <- tmp.mat[i-1, "inv.pos"] - tmp.mat[i, "demand"] + tmp.mat[i, "order"]
+    tmp.mat[i, "inv.level"] <- tmp.mat[i-1, "inv.level"] - tmp.mat[i, "demand"] + tmp.mat[i, "delivery"]
+  }
+  return(tmp.mat[2:(n+1),]) 
+}
+
+# sq inventory optimization
+sq.inv.opt <- function(pars, demand, wwbz, llini, obj = "cost", co = 0, cu = 0, B = 0, alpha.z = 95, beta.z = 99){
+  
+  sim.R <- sq.lager(d = demand, s = pars[1], q = pars[2], l.ini = llini, n = length(demand), L = wwbz)
+  
+  tmp <- sim.R[-c(1),]
+  tmp.l <- tmp[,"inv.level"]
+  tmp.id <- 1:length(tmp.l)
+  tmp.id.sub <- tmp[,"delivery"] > 0
+  tmp.id.sub.w <- which(tmp.id.sub) - 1
+  tmp.id.sub.w <-tmp.id.sub.w[tmp.id.sub.w >0]
+  
+  # Alpha-SL
+  sim.alpha <- (100*(1 - sum( tmp.l[tmp.id.sub.w] < 0)/length(tmp.id.sub.w)))
+  sim.alpha.diff <- (alpha.z - sim.alpha)^2
+  # Beta-SL
+  sim.beta <- (100*(1 - sum(-tmp.l[ tmp.l < 0])/sum(tmp[,"demand"])))
+  sim.beta.diff <- (beta.z - sim.beta)^2
+  
+  # cost
+  sim.cost <- ( sum(tmp[,"order"] > 0)*B +  sum(tmp.l[ tmp.l > 0]) * co + sum(-tmp.l[ tmp.l < 0]) * cu)/length(tmp.l)
+  
+  return(ifelse(obj == "cost", sim.cost, ifelse(obj == "alpha", sim.alpha.diff, sim.beta.diff)) )
+  
+}
+
+# Normal loss functions - direct
+v.fun.direct.norm <- function(s, mu = 0, sigma = 1){
+  integrate(function(y) (y-s)*dnorm(y, mean=mu, sd = sigma), lower = s, upper=Inf)$value
+}
+
+# deviation Beta vs. exp. loss 
+v.diff.norm <- function(x, beta, mu = 0, sigma = 1, L,  c.or, c.sh){
+  (v.fun.direct.norm(x[1], mu = L*mu, sigma = sqrt(L)*sigma) - (1-beta)*x[2])
+}
+
+
+v.diff.norm.q <- function(s, q, beta, mu = 0, sigma = 1, L,  c.or, c.sh){
+  (v.fun.direct.norm(s, mu = L*mu, sigma = sqrt(L)*sigma) - (1-beta)*q)^2
+}
+
+
+################################################
+# Optimization under beta service level constraint
+
+sq.cost <- function(x, c.or, c.sh,mu, L, beta, sigma){
+  c.sh *(x[2]/2 + x[1] - mu*L) + c.or*mu/x[2]
+}
+
+
+iter.sq <- function(mu = 100, sigma = 30, L = 8, c.or = 120, c.sh = 0.024, beta = .95){
+  
+  iter <- 1
+  q.opt.old <- Inf
+  lambda.opt <- 0
+  ef <- 0
+
+  repeat{
+    q.opt <- sqrt(2*(mu*c.or+lambda.opt*ef) /(c.sh))
+    if( abs(q.opt.old - q.opt) <= 1e-4 )  return(c(s.opt, q.opt))
+    ef <- (1-beta)*q.opt
+    s.opt <- optim(fn = v.diff.norm.q, par = mu*L, lower = 0, upper = mu*L*5, method="L-BFGS-B", mu = mu, sigma = sigma, q = q.opt, beta = beta, L = L)$par
+    lambda.opt <- c.sh*q.opt/(1-pnorm(s.opt, mean = L*mu, sd = sqrt(L)*sigma ))
+    res <- c(iter, q.opt, ef, s.opt, lambda.opt)
+    names(res) <- c("iter","q","ef","s","lambda")
+    print(res)
+    q.opt.old <- q.opt
+    iter <- iter + 1
+    if(iter > 100) break
+  }
+  
+}
+
+
+
+v.fun.direct.gamma <- function(s, mu = 0, sigma = 1){
+  integrate(function(y) (y-s)*dgamma(y, shape = mu^2/sigma^2, rate = mu/sigma^2), lower = s, upper=Inf)$value
+}
+
+v.fun.gamma <- function(s, mu = 0, sigma = 1){
+  alpha <- mu^2/sigma^2
+  beta <- mu/sigma^2
+  alpha/beta * (1 - pgamma(s, shape = alpha+1, rate = beta)) - s*(1 - pgamma(s, shape = alpha, rate = beta))
+}
+
+
+iter.sq.mult <- function(mu = 100, sigma = 30, L = 8, c.or = 120, c.sh = 0.024, beta = .95, dist = "norm"){
+  
+  # beta vs. loss normal
+  v.diff.norm.q <- function(s, q, beta, mu = 0, sigma = 1, L,  c.or, c.sh){
+    (v.fun.direct.norm(s, mu = L*mu, sigma = sqrt(L)*sigma) - (1-beta)*q)^2
+  }
+  # beta vs. loss gamma
+  v.diff.gamma.q <- function(s, q, beta, mu = 0, sigma = 1, L,  c.or, c.sh){
+    (v.fun.gamma(s, mu = L*mu, sigma = sqrt(L)*sigma) - (1-beta)*q)^2
+  }
+  
+  if(!(dist %in% c("gamma","norm"))) stop("Neither normal nor gamma distribution defined")
+     
+  iter <- 1
+  q.opt.old <- Inf
+  lambda.opt <- 0
+  ef <- 0
+  
+  repeat{
+    q.opt <- sqrt(2*(mu*c.or+lambda.opt*ef) /(c.sh))
+    if( abs(q.opt.old - q.opt) <= 1e-4 )  return(c(s.opt, q.opt))
+    ef <- (1-beta)*q.opt
+    if(dist == "norm"){
+      s.opt <- optim(fn = v.diff.norm.q, par = mu*L, lower = 0, upper = mu*L*5, method="L-BFGS-B", mu = mu, sigma = sigma, q = q.opt, beta = beta, L = L)$par
+      lambda.opt <- c.sh*q.opt/(1-pnorm(s.opt, mean = L*mu, sd = sqrt(L)*sigma ))
+    }
+    if(dist == "gamma"){
+      s.opt <- optim(fn = v.diff.gamma.q, par = mu*L, lower = 0, upper = mu*L*5, method="L-BFGS-B", mu = mu, sigma = sigma, q = q.opt, beta = beta, L = L)$par
+      lambda.opt <- c.sh*q.opt/(1-pgamma(s.opt, shape = (L*mu)^2/L/sigma^2, rate = L*mu/L/sigma^2 ))
+    }
+      
+    res <- c(iter, q.opt, ef, s.opt, lambda.opt)
+    names(res) <- c("iter","q","ef","s","lambda")
+    #print(res)
+    q.opt.old <- q.opt
+    iter <- iter + 1
+    if(iter > 100) break
+  }
+  
+}
+
+```
+	
+# Continuous review with fixed lead time (I)
+
+1. Calculate the cost-optimal order quantity $q$ and re-order level $s$ assuming an order lead time of 1 week and a minimum $\beta$ service level of 97.5%.
+
+We use the algorithm presented in the lecture. In the first iteration we start with $q^0=\sqrt{\frac{2 \cdot 50 \cdot 80}{0.05}} = 400$, $l^0 = 0.025 \cdot 400 = 10$, $s = 40.45$, and $\lambda^0 = 22.64$ as follows:
+
+```{r, exe1-1, echo=FALSE, message=TRUE, error=FALSE}
+
+iter.sq(mu = 50, sigma = 8, c.sh = 0.05, c.or = 80, beta = .975, L = 1)
+
+```
+
+2. What happens with the re-order level $s$ if the order lead time reduces to 3 days? (no calculations required)
+
+The reorder level decreases as the expected demand in the lead time decreases. However, $s$ decreases non-linearly as the standard deviation scales by $\sqrt{\frac{3}{5}} > \frac{3}{5}$.
+
+# Continuous review with fixed lead time  (II)
+
+A warehouse operator is observing the demand of a particular product. The operator estimates an expected daily demand of 10 and a standard deviation of 5. However, she is not sure which underlying demand distribution is appropriate; a normal distribution or a Gamma distribution are considered as likely candidates. The operator pursues a $(s,q)$ policy for the product which shows a reorder time of 1 day. 
+
+Determine the re-order point $s$ for a normal and Gamma distribution of demand assuming that an $\alpha$ or a $\beta$ service level of 99% should by realized. The order quantity is set to $q=80$ units.
+
+For the normal distribution, we have $s^{\alpha} = 10 + 2.3263 \cdot 5 = 21.63$ and $s^{\beta} = 10 + 0.63 \cdot 5 = 13.15$ whereby $L^{-1}(0.16)\approx 0.63$.
+
+For the gamma distribution, we have $s^{\alpha}= 25.2542$ and $s^{\beta} \approx 19.7$.
+
+
+# Continuous review with stochastic lead time  
+
+Assume that the daily demand of cement on a construction side is Gamma distributed. The expected daily demand is estimated to be 8 tons and the standard deviation is supposed to be 6 tons. When new cement is ordered, the lead time varies. Based on historical records, with 20% probability the delivery arrives after 2 days. A delay of 3 days is observed in 50% of all cases and with 30% probability 4 days expire before the shipment arrives. 
+
+1. Determine the distributional parameters for all three different lead time realizations.  
+
+The distribution parameters for daily demand are $\alpha = \frac{\mu^2}{\sigma^2} = 1.778$ and $\beta =\frac{\mu}{\sigma^2}=0.222$. If the demand is i.i.d., it follows $Y^l \sim \Gamma\left(\sum_{i=1}^l \alpha_i , \beta\right)$
+
+| $l$ 	|  2	| 3 	|  4	|
+|:-:	|:-:	|:-:	|:-:	|
+| $\sum_{i=1}^l \alpha_i$ 	|  $3.556$	|  $5.333$	| $7.111$ 	|
+
+Thus, $Y^{l}\sim \Gamma(l\cdot 1.778,0.222)$.
+
+2. Assume an $\alpha$ service level of 99% should be achieved. Which reorder level $s$ should be chosen?
+
+The (probability weighted) demand distributions for all realizations of the lead time as well as joint demand distribution look like
+```{r, exe3-2, echo=FALSE}
+x.seq <- seq(0,100, length.out = 1000)
+mu <- 8
+sigma <- 6
+alpha <- mu^2/sigma^2
+beta <- mu/sigma^2
+# lead time = 2
+plot(x.seq, dgamma(x.seq , shape =  2*alpha, rate = beta )*0.2, type="l" , ylim=c(0,.035) , xlab="demand", ylab="probability", col=2)
+# lead time = 3
+lines(x.seq, dgamma(x.seq , shape =  3*alpha, rate = beta )*0.5, col=3 )
+# lead time = 4
+lines(x.seq, dgamma(x.seq , shape =  4*alpha, rate = beta )*0.3, col=4 )
+# lead time = 4
+lines(x.seq, dgamma(x.seq , shape =  4*alpha, rate = beta )*0.3 + dgamma(x.seq , shape =  3*alpha, rate = beta )*0.5 +dgamma(x.seq , shape =  2*alpha, rate = beta )*0.2 , col=1 )
+legend("topright", legend=c("joint probability",paste("L=",2:4,sep="")), col = 1:4, lwd=2 , bty="n") 
+```
+
+
+Based on the tables, we estimate $s^\alpha$ for each realization of lead time:
+
+| $l$ 	|  2	| 3 	|  4	|
+|:-:	|:-:	|:-:	|:-:	|
+| $P(L=l)$ 	|  $20%$	|  $50%$	| $30%$ 	|
+| $s_l^\alpha$ 	|  $42.0$	|  $55.9$	| $66.6$ 	|
+
+We conclude that $s^{\alpha}<s_4^\alpha =66.6$. Furthermore, we have $P(Y^{L=2}>66.6) \approx 0$, $P(Y^{L=3}>66.6) < 0.0015$ and $P(Y^{L=4}>66.6) = 0.01$, we can look for $x$ such that $P(Y^{L=4}>s) = 1-\frac{0.01}{0.3}$ such that $s^{\alpha} \approx 57.3$. 
+
+
