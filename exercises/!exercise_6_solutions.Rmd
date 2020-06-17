@@ -3,12 +3,12 @@ title: "Solution Exercise 6 - Continuous review policy"
 author: "Thomas Kirschstein"
 subtitle: Inventory Management
 output:
-  pdf_document: default
   html_document:
     df_print: paged
     toc: yes
     toc_float: true
     number_sections: false
+  pdf_document: default
 ---
   
 ```{r, setup, echo=F, include=T, error=FALSE, warning=FALSE, message=FALSE}
@@ -193,9 +193,9 @@ A warehouse operator is observing the demand of a particular product. The operat
 
 Determine the re-order point $s$ for a normal and Gamma distribution of demand assuming that an $\alpha$ or a $\beta$ service level of 99% should by realized. The order quantity is set to $q=80$ units.
 
-For the normal distribution, we have $s^{\alpha} = 10 + 2.3263 \cdot 5 = 21.63$ and $s^{\beta} = 10 + 0.63 \cdot 5 = 13.15$ whereby $L^{-1}(0.16)\approx 0.63$.
+For the normal distribution, we have $s^{\alpha} = 10 + 2.3263 \cdot 5 = 21.63$ and $s^{\beta} = 10 + 0.63 \cdot 5 = 13.15$ whereby $L^{-1}(Z,0.16)\approx 0.63$.
 
-For the gamma distribution, we have $s^{\alpha}= 25.2542$ and $s^{\beta} \approx 19.7$.
+For the gamma distribution, we have $s^{\alpha}= 25.2542$ and $s^{\beta} = L^{-1}\left(\Gamma\left(\frac{10^2}{5^2}, \frac{10}{5^2}\right),0.08 \right ) \approx 22.1$.
 
 
 # Continuous review with stochastic lead time  

@@ -2813,8 +2813,8 @@ div.tocify {
 <h1>Continuous review with fixed lead time (II)</h1>
 <p>A warehouse operator is observing the demand of a particular product. The operator estimates an expected daily demand of 10 and a standard deviation of 5. However, she is not sure which underlying demand distribution is appropriate; a normal distribution or a Gamma distribution are considered as likely candidates. The operator pursues a <span class="math inline">\((s,q)\)</span> policy for the product which shows a reorder time of 1 day.</p>
 <p>Determine the re-order point <span class="math inline">\(s\)</span> for a normal and Gamma distribution of demand assuming that an <span class="math inline">\(\alpha\)</span> or a <span class="math inline">\(\beta\)</span> service level of 99% should by realized. The order quantity is set to <span class="math inline">\(q=80\)</span> units.</p>
-<p>For the normal distribution, we have <span class="math inline">\(s^{\alpha} = 10 + 2.3263 \cdot 5 = 21.63\)</span> and <span class="math inline">\(s^{\beta} = 10 + 0.63 \cdot 5 = 13.15\)</span> whereby <span class="math inline">\(L^{-1}(0.16)\approx 0.63\)</span>.</p>
-<p>For the gamma distribution, we have <span class="math inline">\(s^{\alpha}= 25.2542\)</span> and <span class="math inline">\(s^{\beta} \approx 19.7\)</span>.</p>
+<p>For the normal distribution, we have <span class="math inline">\(s^{\alpha} = 10 + 2.3263 \cdot 5 = 21.63\)</span> and <span class="math inline">\(s^{\beta} = 10 + 0.63 \cdot 5 = 13.15\)</span> whereby <span class="math inline">\(L^{-1}(Z,0.16)\approx 0.63\)</span>.</p>
+<p>For the gamma distribution, we have <span class="math inline">\(s^{\alpha}= 25.2542\)</span> and <span class="math inline">\(s^{\beta} = L^{-1}\left(\Gamma\left(\frac{10^2}{5^2}, \frac{10}{5^2}\right),0.08 \right ) \approx 22.1\)</span>.</p>
 </div>
 <div id="continuous-review-with-stochastic-lead-time" class="section level1">
 <h1>Continuous review with stochastic lead time</h1>
