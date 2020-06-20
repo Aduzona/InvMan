@@ -1,0 +1,268 @@
+---
+title: "Solution Exercise 7 - Dynamic lot sizing"
+author: "Thomas Kirschstein"
+subtitle: Inventory Management
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: true
+    number_sections: false
+---
+
+
+
+```{r, setup, echo=F, include=T, error=FALSE, warning=FALSE, message=FALSE}
+library(DT)
+library(kableExtra)
+library(knitr)
+
+# Normal loss functions - direct
+v.fun.direct.norm <- function(s, mu = 0, sigma = 1){
+  integrate(function(y) (y-s)*dnorm(y, mean=mu, sd = sigma), lower = s, upper=Inf)$value
+}
+
+# deviation Beta vs. exp. loss 
+v.diff.norm <- function(x, beta, mu = 0, sigma = 1, L,  c.or, c.sh){
+  (v.fun.direct.norm(x[1], mu = L*mu, sigma = sqrt(L)*sigma) - (1-beta)*x[2])
+}
+
+
+v.diff.norm.q <- function(s, q, beta, mu = 0, sigma = 1, L,  c.or, c.sh){
+  (v.fun.direct.norm(s, mu = L*mu, sigma = sqrt(L)*sigma) - (1-beta)*q)^2
+}
+
+
+
+v.fun.direct.gamma <- function(s, mu = 0, sigma = 1){
+  integrate(function(y) (y-s)*dgamma(y, shape = mu^2/sigma^2, rate = mu/sigma^2), lower = s, upper=Inf)$value
+}
+
+v.fun.gamma <- function(s, mu = 0, sigma = 1){
+  alpha <- mu^2/sigma^2
+  beta <- mu/sigma^2
+  alpha/beta * (1 - pgamma(s, shape = alpha+1, rate = beta)) - s*(1 - pgamma(s, shape = alpha, rate = beta))
+}
+
+# beta-Servicelevel
+v.fun <- function(x, mu = 0, sigma = 1) {
+  sigma * (dnorm((x-mu)/sigma) - (x-mu)/sigma * (1-pnorm((x-mu)/sigma) ))
+}
+# optimizer beta SL
+v.fun.opt.loss <- function(x, loss = loss.norm, ...) (loss - v.fun(x, ...))^2 
+
+
+# shortest path / WW
+
+ww.opt.func <- function(c.mat){
+  n <- nrow(c.mat)
+  res.mat <- matrix(NA, ncol=n, nrow=n)
+  res.id <- numeric(n)
+  # initializing
+  res.mat[1,] <- c.mat[1,]
+  for(i in 2:n){
+    res.id[i-1] <- which.min(res.mat[,i-1])
+    res.mat[i,] <- c.mat[i,] + res.mat[res.id[i-1],i-1]
+  }
+  res.id[n] <- which.min(res.mat[,n])
+  polic <- res.id[n]
+  repeat{
+    polic <- c(polic , res.id[tail(polic,1)-1] )
+    if(tail(polic,1) == 1) break
+  }
+  polic <- rev(polic)
+  
+  return(list(cum.cost = res.mat, ord.per = polic, ids = res.id))
+}
+
+
+
+```
+
+# Dynamic lotsizing with $\alpha$ service level constraint
+
+1. Calculate the matrices of means, standard deviations and  order-up levels $S$. Derive the total cost matrix. 
+
+```{r, exe-1-1, echo=F, message=F, error=FALSE , include=T}
+options(knitr.kable.NA = '')
+# solution
+t.vec <- 1:6
+mu.vec <- round(60 + 10*sin(2*pi*t.vec/max(t.vec)) + 30*cos(2*pi*t.vec/max(t.vec)),0)
+sig.vec <- mu.vec * 0.2
+
+c.or <- 10
+c.sh <- 0.022
+alpha <- .99 #0.9009009
+n <- length(mu.vec)
+
+seqs <- n:1
+# means
+mean.mat <- matrix(NA, ncol=n, nrow=n, byrow=T) 
+mean.mat[lower.tri(mean.mat, diag = T)] <- unlist(sapply(seqs, function(x) cumsum(tail(mu.vec, x) ) ))
+mean.mat <- t(mean.mat)
+
+df <- as.data.frame(round(mean.mat,2))
+colnames(df) <- rownames(df) <- 1:n
+kable(df, "pandoc", caption = "Mean matrix", row.names = T)
+
+# sds
+sds.mat <- matrix(NA, ncol=n, nrow=n, byrow=T) 
+sds.mat[lower.tri(mean.mat, diag = T)] <- unlist(sapply(seqs, function(x) sqrt(cumsum(tail(sig.vec^2, x) ) ) ))
+sds.mat <- t(sds.mat)
+
+df <- as.data.frame(round(sds.mat,2))
+colnames(df) <- rownames(df) <- 1:n
+kable(df, "pandoc", caption = "Standard deviation matrix", row.names = T)
+
+z <- qnorm(alpha)
+
+# S mat
+S.mat <- mean.mat + z*sds.mat
+
+df <- as.data.frame(round(S.mat,2))
+colnames(df) <- rownames(df) <- 1:n
+kable(df, "pandoc", caption = "Order-up level (S) matrix", row.names = T)
+
+# cost mat
+mult.mat <- matrix(NA, ncol=n, nrow=n) 
+mult.mat[lower.tri(mult.mat, diag = T)] <- unlist( sapply(1:n, function(x) tail(1:n,n-x+1)-x+1 ) )
+mult.mat <- t(mult.mat)
+
+mmeans.mat <- matrix(NA, ncol=n, nrow=n) 
+mmeans.mat[lower.tri(mmeans.mat, diag = T)] <- unlist(sapply(seqs, function(x) sapply(1:x , function(y) sum(y:1 * head(tail(mu.vec, x),y) ) )))
+mmeans.mat <- t(mmeans.mat)
+
+cost.mat <- c.or + c.sh * (mult.mat * S.mat -  mmeans.mat)
+
+df <- as.data.frame(round(cost.mat,2))
+colnames(df) <- rownames(df) <- 1:n
+kable(df, "pandoc", caption = "Partial cost matrix", row.names = T)
+
+```
+
+2. Determine the optimal weekly replenishment strategy and calculate expected stock levels as well as order quantities. On which weekdays has retailer to expect potential shortfalls?
+
+Based on the partial cost, the cumulative total cost are as follows:
+```{r, exe-1-2, echo=F, message=F, error=FALSE , include=T}
+res.1 <- ww.opt.func(cost.mat)
+df <- as.data.frame(round(res.1$cum.cost,2))
+colnames(df) <- rownames(df) <- 1:n
+kable(df, "pandoc", caption = "Total cost matrix", row.names = T)
+```
+
+Thus, the optimal policy is to order in periods `r paste(res.1$ord.per, collapse = " and ")`. Thus, order-up levels are $S_1 =$ `r round(S.mat[1,4],2)` and $S_5=$ `r round(S.mat[5,6],2)`. For expected inventory levels and expected order quantities follows:
+
+```{r, echo=FALSE}
+i.vec <- c(round(S.mat[1,4],2) - mean.mat[1,1:4], round(S.mat[5,6],2) - mean.mat[5,5:6])
+q.vec <- c(round(S.mat[1,4],2), 0,0,0, round(S.mat[5,6],2)-i.vec[4], 0)
+df <- as.data.frame(rbind(q.vec,i.vec))
+colnames(df) <- 1:n
+rownames(df) <- c("$q_t$","$i_t$")
+kable(df, "pandoc", row.names = T)
+```
+
+Shortfalls may (most likely) occur in period 4 and 6 (on Thursday and Saturday).
+
+3. A consultant suggests that the retail manager should incorporate shortage cost instead of the $\alpha$ service level to determine the optimal ordering policy. The retail manager estimates a shortage cost rate of 0.20 Euro per unit of milk. What happens to the replenishment solution? (no calculation required)
+
+With the given  cost rates a critical ratio of $CR=\frac{c^{sf}}{c^{sf} + c^{sh}}=\frac{0.20}{0.20 + 0.022} \approx 90.1$%. Thus, the safety multiplier $z$ reduces to `r round(qnorm(0.901),2)`. Consequently, the order-up levels $S$ decrease linearly w.r.t. $\sigma$ which also holds for the partial cost. As the ratio between means and standard deviations is comparatively small ($c=0.2$), the structure of partial costs is probably not much affected. Therefore, the solution probably remains the same (same ordering periods), but the total cost decrease. 
+
+# Dynamic lotsizing with $\beta$ service level constraint
+
+The following table displays expected demand and standard deviation of a material for the next 7 days. 
+
+| $t$        | 1   | 2  |  3 |   4  |  5  |  6  |  7  |
+|:------:|:------:|:------:|:------:|:------:|:------:|:------:|:------:|
+| $\mu_t$     | 120 | 75 | 82 | 100 | 91 | 65 | 88 |
+| $\sigma_t$  | 30 | 12 | 25 | 10 | 28 | 5 | 10 |
+
+The demand is assumed to be independently normally distributed. The manager intends to assure a $\beta$ service level of 98%. Ordering cost are $c^{or}=150$ Euro and stock-holding cost rate $c^{sh} = 0.5$ Euro per unit and period.
+
+1. Calculate the matrices of means, standard deviations and  order-up levels $S$. Derive the total cost matrix. 
+
+```{r, exe-2-1, echo=F, message=F, error=FALSE , include=T}
+# solution
+mu.vec <- c(120,75,82,100,91,65,88)
+sig.vec <- c(30,12,25,10,28,5,10)
+
+c.or <- 150
+c.sh <- 0.5
+beta <- .97 #0.9009009
+n <- length(mu.vec)
+
+seqs <- n:1
+# means
+mean.mat <- matrix(NA, ncol=n, nrow=n, byrow=T) 
+mean.mat[lower.tri(mean.mat, diag = T)] <- unlist(sapply(seqs, function(x) cumsum(tail(mu.vec, x) ) ))
+mean.mat <- t(mean.mat)
+# sds
+sds.mat <- matrix(NA, ncol=n, nrow=n, byrow=T) 
+sds.mat[lower.tri(mean.mat, diag = T)] <- unlist(sapply(seqs, function(x) sqrt(cumsum(tail(sig.vec^2, x) ) ) ))
+sds.mat <- t(sds.mat)
+
+# S mat
+S.mat <- matrix(NA, ncol=n, nrow=n) 
+S.mat[upper.tri(S.mat, diag = T)] <- 
+  sapply(which(upper.tri(mean.mat, diag = T)), function(x) {
+  optim(v.fun.opt.loss, loss = mean.mat[x]*(1-beta), mu = mean.mat[x], sigma = sds.mat[x], par = mean.mat[x], lower = 0, upper = mean.mat[x]+5*sds.mat[x], method="L-BFGS-B")$par
+})
+
+
+# cost mat
+mult.mat <- matrix(NA, ncol=n, nrow=n) 
+mult.mat[lower.tri(mult.mat, diag = T)] <- unlist( sapply(1:n, function(x) tail(1:n,n-x+1)-x+1 ) )
+mult.mat <- t(mult.mat)
+
+mmeans.mat <- matrix(NA, ncol=n, nrow=n) 
+mmeans.mat[lower.tri(mmeans.mat, diag = T)] <- unlist(sapply(seqs, function(x) sapply(1:x , function(y) sum(y:1 * head(tail(mu.vec, x),y) ) )))
+mmeans.mat <- t(mmeans.mat)
+
+cost.mat <- c.or + c.sh * (mult.mat * S.mat -  mmeans.mat)
+#
+res.2 <- ww.opt.func(cost.mat)
+
+df.mean <- as.data.frame(round(mean.mat,2))
+colnames(df.mean) <- rownames(df.mean) <- 1:n
+kable(df.mean, "pandoc", caption = "Mean matrix", row.names = T)
+
+df.sd <- as.data.frame(round(sds.mat,2))
+colnames(df.sd) <- rownames(df.sd) <- 1:n
+kable(df.sd, "pandoc", caption = "Standard deviation matrix", row.names = T)
+
+df.S <- as.data.frame(round(S.mat,2))
+colnames(df.S) <- rownames(df.S) <- 1:n
+kable(df.S, "pandoc", caption = "Order-up level (S) matrix", row.names = T)
+
+df.cost <- as.data.frame(round(cost.mat,2))
+colnames(df.cost) <- rownames(df.cost) <- 1:n
+kable(df.cost, "pandoc", caption = "Partial cost matrix", row.names = T)
+```
+
+
+2. Determine the optimal weekly replenishment strategy and calculate expected stock levels as well as order quantities. 
+
+Based on the partial cost, the cumulative total cost are as follows:
+```{r, exe-2-2, echo=F, message=F, error=FALSE , include=T}
+res.2 <- ww.opt.func(cost.mat)
+df <- as.data.frame(round(res.2$cum.cost,2))
+colnames(df) <- rownames(df) <- 1:n
+kable(df, "pandoc", caption = "Total cost matrix", row.names = T)
+```
+
+Thus, the optimal policy is to order in periods `r paste(res.2$ord.per, collapse = " and ")`. Thus, order-up levels are $S_1 =$ `r round(S.mat[1,3],2)` and $S_4=$ `r round(S.mat[4,7],2)`. For expected inventory levels and expected order quantities follows:
+
+```{r, echo=FALSE}
+i.vec <- c(round(S.mat[1,3],2) - mean.mat[1,1:3], round(S.mat[4,7],2) - mean.mat[4,4:7])
+q.vec <- c(round(S.mat[1,3],2), 0,0, round(S.mat[4,7],2)-i.vec[3], 0,0,0)
+df <- as.data.frame(rbind(q.vec,i.vec))
+colnames(df) <- 1:n
+rownames(df) <- c("$q_t$","$i_t$")
+kable(df, "pandoc", row.names = T)
+```
+
+
+3. Assume the supplier can ship only 200 units at most. Does the optimal solution change? Try to find an alternative solution by adapting the Wagner-Whithin algorithm.
+
+Yes, the solution needs to be changed as the expected order quantities are larger than the transport capacity. Alternative solution with at least 3 orders?
+
