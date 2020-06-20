@@ -1,0 +1,99 @@
+---
+author: "Thomas Kirschstein"
+title: "Solution Exercise 7 - Dynamic lot sizing"
+subtitle: Inventory Management
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: true
+    number_sections: false
+  pdf_document: default
+---
+  
+```{r, setup, echo=F, include=T, error=FALSE, warning=FALSE, message=FALSE}
+library(DT)
+library(kableExtra)
+library(knitr)
+
+# Normal loss functions - direct
+v.fun.direct.norm <- function(s, mu = 0, sigma = 1){
+  integrate(function(y) (y-s)*dnorm(y, mean=mu, sd = sigma), lower = s, upper=Inf)$value
+}
+
+# deviation Beta vs. exp. loss 
+v.diff.norm <- function(x, beta, mu = 0, sigma = 1, L,  c.or, c.sh){
+  (v.fun.direct.norm(x[1], mu = L*mu, sigma = sqrt(L)*sigma) - (1-beta)*x[2])
+}
+
+
+v.diff.norm.q <- function(s, q, beta, mu = 0, sigma = 1, L,  c.or, c.sh){
+  (v.fun.direct.norm(s, mu = L*mu, sigma = sqrt(L)*sigma) - (1-beta)*q)^2
+}
+
+
+
+v.fun.direct.gamma <- function(s, mu = 0, sigma = 1){
+  integrate(function(y) (y-s)*dgamma(y, shape = mu^2/sigma^2, rate = mu/sigma^2), lower = s, upper=Inf)$value
+}
+
+v.fun.gamma <- function(s, mu = 0, sigma = 1){
+  alpha <- mu^2/sigma^2
+  beta <- mu/sigma^2
+  alpha/beta * (1 - pgamma(s, shape = alpha+1, rate = beta)) - s*(1 - pgamma(s, shape = alpha, rate = beta))
+}
+
+# beta-Servicelevel
+v.fun <- function(x, mu = 0, sigma = 1) {
+  sigma * (dnorm((x-mu)/sigma) - (x-mu)/sigma * (1-pnorm((x-mu)/sigma) ))
+}
+# optimizer beta SL
+v.fun.opt.loss <- function(x, loss = loss.norm, ...) (loss - v.fun(x, ...))^2 
+
+
+# shortest path / WW
+
+ww.opt.func <- function(c.mat){
+  n <- nrow(c.mat)
+  res.mat <- matrix(NA, ncol=n, nrow=n)
+  res.id <- numeric(n)
+  # initializing
+  res.mat[1,] <- c.mat[1,]
+  for(i in 2:n){
+    res.id[i] <- which.min(res.mat[,i-1])
+    res.mat[i,] <- c.mat[i,] + res.mat[res.id[i],i-1]
+  }
+  return(list(cum.cost = res.mat, ids = res.id))
+}
+
+
+
+```
+
+# Dynamic lotsizing with $\alpha$ service level constraint
+
+A food retailer has estimated the following model for the expected daily milk demand:
+
+$$\mu_t = 60 + 10 \cdot \sin\left(\frac{2 \cdot \pi \cdot t}{T}\right) + 30 \cdot \cos\left(\frac{2 \cdot \pi \cdot t}{T}\right)$$
+where $t=1,...,6$ represents the week day and $T=6$. The daily demand is assumed to be independently normally distributed with a coefficient of variation of $c = \frac{\sigma}{\mu} = 0.2$. 
+
+Recently, the food retailer has switched to a new regional, eco-certified milk supplier. Now, negotiations on the delivery parameters are about to start. The supplier charges 10 Euro per delivery. The food retailer calculates with a cost rate of 2% per day and Euro as well as a purchasing price of 1.10 Euro per unit of milk. Moreover, the retailer has to assure an $\alpha$ service level of 99%.
+
+1. Calculate the matrices of means, standard deviations and  order-up levels $S$. Derive the total cost matrix. 
+2. Determine the optimal weekly replenishment strategy and calculate expected stock levels as well as order quantities. On which weekdays has retailer to expect potential shortfalls?
+3. A consultant suggests that the retail manager should incorporate shortage cost instead of the $\alpha$ service level to determine the optimal ordering policy. The retail manager estimates a shortage cost rate of 0.20 Euro per unit of milk. What happens to the replenishment solution? (no calculation required)
+
+# Dynamic lotsizing with $\beta$ service level constraint
+
+The following table displays expected demand and standard deviation of a material for the next 7 days. 
+
+| $t$        | 1   | 2  |  3 |   4  |  5  |  6  |  7  |
+|:------:|:------:|:------:|:------:|:------:|:------:|:------:|:------:|
+| $\mu_t$     | 120 | 75 | 82 | 100 | 91 | 65 | 88 |
+| $\sigma_t$  | 30 | 12 | 25 | 10 | 28 | 5 | 10 |
+
+The demand is assumed to be independently normally distributed. The manager intends to assure a $\beta$ service level of 98%. Ordering cost are $c^{or}=150$ Euro and stock-holding cost rate $c^{sh} = 0.5$ Euro per unit and period.
+
+1. Calculate the matrices of means, standard deviations and  order-up levels $S$. Derive the total cost matrix. 
+2. Determine the optimal weekly replenishment strategy and calculate expected stock levels as well as order quantities. 
+3. Assume the supplier can ship only 200 units at most. Does the optimal solution change? Try to find an alternative solution by adapting the Wagner-Whithin algorithm.
