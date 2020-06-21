@@ -1,0 +1,75 @@
+---
+author: "Thomas Kirschstein"
+title: "Exercise 8 - Multi-item lot sizing"
+subtitle: Inventory Management
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: true
+    number_sections: false
+---
+  
+```{r, setup, echo=F, include=T, error=FALSE, warning=FALSE, message=FALSE}
+library(DT)
+library(kableExtra)
+library(knitr)
+
+# objective function elsp
+elsp.obj <- function(csh, cor, y, p,t) cor/t + csh*y*(1-y/p)*t/2
+
+jrp.obj.fun <- function(m , B, cor, csh, cor0) cor0/B + sum(cor/B/m) + sum(csh*B*m)
+
+
+```
+
+# Economic lot scheduling
+
+In a chemical plant, a batch production process with 8 different products exists. All products are extruded on the same machine with different speeds. The following table contains the relevant product specific parameters.
+
+```{r, echo = F}
+set.seed(7654321)
+nb.prod <- 8
+c.sh <- round(runif(nb.prod, .01, 1),2)
+c.or <- round(runif(nb.prod, 5, 1000),0)
+y.vec <- round(runif(nb.prod, 20, 150),0)
+p.vec <- round(y.vec * runif(nb.prod , 2.25, 30),0)
+rho.vec <- y.vec/p.vec
+s.vec <- round(runif(nb.prod, .001, .2),3)
+
+kappa <- 1-sum(y.vec/p.vec)
+
+df <- as.data.frame(rbind(c.sh, c.or, y.vec, p.vec, s.vec))
+colnames(df) <- 1:8
+rownames(df) <- c("$c_i^{sh}$","$c_i^{or}$", "$y_i$", "$p_i$","$s_i$")
+kable(df, "pandoc", row.names = T)
+```
+
+1. Determine the product-specific utilization rate and the total utilization of the machine. Can a feasible schedule be found?
+2. Determine the independent and common cycle solution. What are the associated total costs? Is the independent solution feasible?
+3. Try to find a better solution by the power-of-2 heuristic.
+
+# Joint replenishment problem
+
+An automobile manufacturer is supplied with 8 materials from a particular supplier. The supplier charges  fixed transport and handling cost of 3000 Euro every time an order for at least one of the 8 offered materials is issued. Beyond that the, each material has afixed demand rate, holding cost rate and handling cost summarized in the following table.
+
+```{r, echo = F}
+n <- 8
+c.or0 <- 300
+set.seed(234567)
+c.or <- round(runif(n, 100, 1000))
+c.sh <- round(runif(n, .01, .5) , 2 )
+y.vec <- round(runif(n, 5, 100)) 
+
+
+df <- as.data.frame(rbind(c.sh, c.or, y.vec))
+colnames(df) <- 1:n
+rownames(df) <- c("$c_i^{sh}$","$c_i^{or}$", "$y_i$")
+kable(df, "pandoc", row.names = T)
+```
+
+
+1. Calculate the holding cost multipliers and individual optimal cycle times for each material. Order the products increasingly w.r.t. cycle time. 
+2. Use the basic period heuristic to find a solution for the replenishment problem (round to integers). Determine also the order quantities of each product. 
+3. Try to find another solution by rounding ordering frequencies to powers of 2 (instead of iontegers). Can the solution from 2. be improved?
