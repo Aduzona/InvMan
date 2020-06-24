@@ -3,12 +3,12 @@ title: "Solution Exercise 7 - Dynamic lot sizing"
 author: "Thomas Kirschstein"
 subtitle: Inventory Management
 output:
-  pdf_document: default
   html_document:
     df_print: paged
     toc: yes
     toc_float: true
     number_sections: false
+  pdf_document: default
 ---
 
 
@@ -188,7 +188,7 @@ sig.vec <- c(30,12,25,10,28,5,10)
 
 c.or <- 150
 c.sh <- 0.5
-beta <- .97 #0.9009009
+beta <- .98
 n <- length(mu.vec)
 
 seqs <- n:1
@@ -238,7 +238,6 @@ df.cost <- as.data.frame(round(cost.mat,2))
 colnames(df.cost) <- rownames(df.cost) <- 1:n
 kable(df.cost, "pandoc", caption = "Partial cost matrix", row.names = T)
 ```
-
 
 2. Determine the optimal weekly replenishment strategy and calculate expected stock levels as well as order quantities. 
 
