@@ -3,12 +3,12 @@ title: "Solution Exercise 7 - Dynamic lot sizing"
 author: "Thomas Kirschstein"
 subtitle: Inventory Management
 output:
+  pdf_document: default
   html_document:
     df_print: paged
     toc: yes
     toc_float: true
     number_sections: false
-  pdf_document: default
 ---
 
 
@@ -249,11 +249,11 @@ colnames(df) <- rownames(df) <- 1:n
 kable(df, "pandoc", caption = "Total cost matrix", row.names = T)
 ```
 
-Thus, the optimal policy is to order in periods `r paste(res.2$ord.per, collapse = " and ")`. Thus, order-up levels are $S_1 =$ `r round(S.mat[1,3],2)` and $S_4=$ `r round(S.mat[4,7],2)`. For expected inventory levels and expected order quantities follows:
+Thus, the optimal policy is to order in periods `r paste(res.2$ord.per, collapse = " and ")`. Thus, order-up levels are $S_1 =$ `r round(S.mat[1,3],2)`, $S_4=$ `r round(S.mat[4,5],2)`, and $S_6=$ `r round(S.mat[6,7],2)`. For expected inventory levels and expected order quantities follows:
 
 ```{r, echo=FALSE}
-i.vec <- c(round(S.mat[1,3],2) - mean.mat[1,1:3], round(S.mat[4,7],2) - mean.mat[4,4:7])
-q.vec <- c(round(S.mat[1,3],2), 0,0, round(S.mat[4,7],2)-i.vec[3], 0,0,0)
+i.vec <- c(round(S.mat[1,3],2) - mean.mat[1,1:3], round(S.mat[4,5],2) - mean.mat[4,4:5], round(S.mat[6,7],2) - mean.mat[6,6:7])
+q.vec <- c(round(S.mat[1,3],2), 0,0, round(S.mat[4,5],2)-i.vec[3],0,round(S.mat[6,7],2)-i.vec[5],0)
 df <- as.data.frame(rbind(q.vec,i.vec))
 colnames(df) <- 1:n
 rownames(df) <- c("$q_t$","$i_t$")

@@ -3,12 +3,12 @@ author: "Thomas Kirschstein"
 title: "Solution Exercise 8 - Multi-item lot sizing"
 subtitle: Inventory Management
 output:
-  pdf_document: default
   html_document:
     df_print: paged
     toc: yes
     toc_float: true
     number_sections: false
+  pdf_document: default
 ---
   
 ```{r, setup, echo=F, include=T, error=FALSE, warning=FALSE, message=FALSE}
@@ -26,7 +26,7 @@ jrp.obj.fun <- function(m , B, cor, csh, cor0) cor0/B + sum(cor/B/m) + sum(csh*B
 
 # Economic lot scheduling
 
-1. Determine the product-specific utilization rate and the total utilization of the machine. Can a feasible schedule be found?
+1. Determine the product-specific utilization rates and the total utilization of the machine. Can a feasible schedule be found?
 
 The product-specific utilization rates  $\rho_i=\frac{y_i}{p_i}$ are all smaller than 1:
 
@@ -48,7 +48,7 @@ colnames(df) <- 1:nb.prod
 kable(df, "pandoc", row.names = T)
 ```
 
-Additionally, $\kappa = \sum_{i=1}^n \rho_i=$ `r round(kappa,1)` is smaller than 1, too. Thus, a feasible shall exist.
+Additionally, the  idle time share  $\kappa =1- \sum_{i=1}^n \rho_i=$ `r round(kappa,1)` is greater than 1, too. Thus, a feasible schedule shall exist.
 
 2. Determine the independent and common cycle solution. What are the associated total costs? Is the independent solution feasible?
 
@@ -109,7 +109,6 @@ We determine the basic cycle time as the minimum cycle time of the indepedent so
 ```{r, echo = F}
 # power of two heuristic  ##############################
 ## 1st iteration
-
 # update B
 B <- min(T.vec)
 m.vec <- sqrt(2*c.or/B^2/c.sh/y.vec/(1-rho.vec))
@@ -137,7 +136,7 @@ colnames(df) <- c(as.character(1:nb.prod))
 kable(df, "pandoc", row.names = T)
 ```
 
-We observe that again the basic cycle time is smaller than the largest batch time. I.e., this solution cannot be feasible. However, maybe not  synchronization feasibility (alone) is the problem, but the capacity constraint. Therefore, we can compute a minimum basic cylce time $\underline{B}$ analogues to $\underline{T}$ in the common cycle solution by rearranging $\sum_{i =1 }^n{\frac{s_i}{m_i \cdot B}} \leq 1-\kappa$ for $B$. Thus, we have $B \geq \frac{1}{\kappa} \cdot \sum_{i=1}^n{\frac{s_i}{m_i}} = \underline{B}$. Here, $\underline{B}=$ `r round(B.min,2)`such that $B=\max\left(B^* , \underline{B} \right)=\max ($ `r round(B.opt,2)`,`r round(B.min,2)` $)=$ `r round(B,2)`. We conclude that the capacity constraint is not violated, but nonetheless no feasible solution can be found.
+We observe that again the basic cycle time is smaller than the largest batch time. I.e., this solution cannot be feasible. However, maybe not  synchronization feasibility (alone) is the problem, but the capacity constraint. Therefore, we can compute a minimum basic cylce time $\underline{B}$ analogues to $\underline{T}$ in the common cycle solution by rearranging $\sum_{i =1 }^n{\frac{s_i}{m_i \cdot B}} \leq \kappa$ for $B$. Thus, we have $B \geq \frac{1}{\kappa} \cdot \sum_{i=1}^n{\frac{s_i}{m_i}} = \underline{B}$. Here, $\underline{B}=$ `r round(B.min,2)`such that $B=\max\left(B^* , \underline{B} \right)=\max ($ `r round(B.opt,2)`,`r round(B.min,2)` $)=$ `r round(B,2)`. We conclude that the capacity constraint is not violated, but nonetheless no feasible solution can be found.
 
 - *2nd iteration*: 
 We alter the vector of frequencies to cope with the synchronization feasibility. The products with the batch times larger than $B$ are #7 and #3. Thus, we reduce frequencies of thos products:
@@ -198,9 +197,9 @@ c(rep("",7),"2",rep("",7),"6"), c(rep(0,7),1.0,rep(0,7),1.19), c(0.04,0.08,0.64,
 rownames(df) <- 1:nrow(df)
 colnames(df) <- rep(c("$i$", "$\\sum b_i$", "rest" ), 5)
 
-kable(df,"pandoc", row.names = T) %>%
-  #kable_styling("striped") %>%
-  add_header_above(c(" " = 1, "$m=1$" = 3, "$m=2$" = 3, "$m=4$" = 3, "$m=8$" = 3, "$m=16$" = 3))
+kable(df,"html", row.names = T, escape = F) %>%
+  kable_styling("striped") %>%
+  add_header_above(c(" " = 1, "$m=1$" = 3, "$m=2$" = 3, "$m=4$" = 3, "$m=8$" = 3, "$m=16$" = 3), escape = F)
 ```
 
 Obviously, the schedule is feasible. The total cost are `r round(sum(c.cost.po2.3),2)`.

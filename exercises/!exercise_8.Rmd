@@ -3,12 +3,12 @@ author: "Thomas Kirschstein"
 title: "Exercise 8 - Multi-item lot sizing"
 subtitle: Inventory Management
 output:
-  pdf_document: default
   html_document:
     df_print: paged
     toc: yes
     toc_float: true
     number_sections: false
+  pdf_document: default
 ---
   
 ```{r, setup, echo=F, include=T, error=FALSE, warning=FALSE, message=FALSE}
@@ -52,7 +52,7 @@ kable(df, "pandoc", row.names = T)
 
 # Joint replenishment problem
 
-An automobile manufacturer is supplied with 8 materials from a particular supplier. The supplier charges  fixed transport and handling cost of 3000 Euro every time an order for at least one of the 8 offered materials is issued. Beyond that the, each material has afixed demand rate, holding cost rate and handling cost summarized in the following table.
+An automobile manufacturer is supplied with 8 materials from a particular supplier. The supplier charges  fixed transport and handling cost of 300 Euro every time an order for at least one of the 8 offered materials is issued. Beyond that the, each material has a fixed demand rate, holding cost rate and handling cost summarized in the following table.
 
 ```{r, echo = F}
 n <- 8
