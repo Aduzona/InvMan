@@ -1,0 +1,381 @@
+---
+title: "Mock exam"
+author: "Thomas Kirschstein"
+subtitle: Inventory Management
+output:
+  pdf_document: default
+  word_document:
+    toc: yes
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: yes
+    number_sections: no
+---
+  
+```{r, setup, echo=F, include=T, error=FALSE, warning=FALSE, message=FALSE}
+
+out.file <-"latex" # "html" # 
+library(DT)
+library(kableExtra)
+library(knitr)
+library(tidyverse)
+library(forecast)
+library(expsmooth)
+library(TTR)
+
+# objective function elsp
+elsp.obj <- function(csh, cor, y, p,t) cor/t + csh*y*(1-y/p)*t/2
+
+jrp.obj.fun <- function(m , B, cor, csh, cor0) cor0/B + sum(cor/B/m) + sum(csh*B*m)
+
+
+# function for calculating 1stES forecasts
+first.es <- function(y, alpha = .4,  initial = c(mean(y))){
+  
+  n <- length(y)
+  res <- matrix(NA, ncol=3, nrow=n+2)
+  rownames(res) <- 0:(n+1)
+  colnames(res) <- c("y","a","y.hat")
+  
+  res["0", c("a")] <- initial
+  res[2:(n+1),"y"] <- y
+  
+  for(i in 2:(nrow(res)-1) ){
+    res[i, "y.hat"] <- res[i-1, "a"] 
+    res[i, "a"] <- alpha * res[i, "y"] + (1 - alpha) * res[i, "y.hat"]
+  }
+  res[n+2, "y.hat"] <- res[n+1, "a"]
+  return(res)
+}
+
+
+# function for calculating 2ndES forecasts
+sec.es <- function(y, alpha = .4, beta = .6, initial = c(mean(y), 0 )){
+  
+  n <- length(y)
+  res <- matrix(NA, ncol=4, nrow=n+2)
+  rownames(res) <- 0:(n+1)
+  colnames(res) <- c("y","a","b","y.hat")
+  
+  res["0", c("a","b")] <- initial
+  res[2:(n+1),"y"] <- y
+  
+  for(i in 2:(nrow(res)-1) ){
+    res[i, "y.hat"] <- res[i-1, "a"] + res[i-1, "b"]
+    res[i, "a"] <- alpha * res[i, "y"] + (1 - alpha) * res[i, "y.hat"]
+    res[i, "b"] <- beta * (res[i, "a"]-res[i-1, "a"]) + (1 - beta) * res[i-1, "b"]
+  }
+  res[n+2, "y.hat"] <- res[n+1, "a"] + res[n+1, "b"]
+  return(res)
+}
+
+# Normal loss functions - direct
+v.fun.direct.norm <- Vectorize(function(s, mu = 0, sigma = 1){
+  integrate(function(y) (y-s)*dnorm(y, mean=mu, sd = sigma), lower = s, upper=Inf)$value
+})
+
+# deviation Beta vs. exp. loss 
+v.diff.norm <- function(x, beta, mu = 0, sigma = 1, L,  c.or, c.sh){
+  (v.fun.direct.norm(x[1], mu = L*mu, sigma = sqrt(L)*sigma) - (1-beta)*x[2])
+}
+
+
+v.diff.norm.q <- function(s, q, beta, mu = 0, sigma = 1, L,  c.or, c.sh){
+  (v.fun.direct.norm(s, mu = L*mu, sigma = sqrt(L)*sigma) - (1-beta)*q)^2
+}
+
+
+################################################
+# Optimization under beta service level constraint
+
+sq.cost <- function(x, c.or, c.sh,mu, L, beta, sigma){
+  c.sh *(x[2]/2 + x[1] - mu*L) + c.or*mu/x[2]
+}
+
+
+iter.sq <- function(mu = 100, sigma = 30, L = 8, c.or = 120, c.sh = 0.024, beta = .95){
+  
+  iter <- 1
+  q.opt.old <- Inf
+  lambda.opt <- 0
+  ef <- 0
+
+  repeat{
+    q.opt <- sqrt(2*(mu*c.or+lambda.opt*ef) /(c.sh))
+    if( abs(q.opt.old - q.opt) <= 1e-4 )  return(c(s.opt, q.opt))
+    ef <- (1-beta)*q.opt
+    s.opt <- optim(fn = v.diff.norm.q, par = mu*L, lower = 0, upper = mu*L*5, method="L-BFGS-B", mu = mu, sigma = sigma, q = q.opt, beta = beta, L = L)$par
+    lambda.opt <- c.sh*q.opt/(1-pnorm(s.opt, mean = L*mu, sd = sqrt(L)*sigma ))
+    res <- c(iter, q.opt, ef, s.opt, lambda.opt)
+    names(res) <- c("iter","q","ef","s","lambda")
+    print(res)
+    q.opt.old <- q.opt
+    iter <- iter + 1
+    if(iter > 100) break
+  }
+  
+}
+options(knitr.kable.NA = '')
+opts_chunk$set(echo = FALSE)
+#                out.width = "49%", 
+#                fig.align = "center")
+```
+
+# Task 1: MRP
+
+The company "DeEffimero" is a producer of coffee machines and faces a cyber attack (presumably from a competitor). The attack causes severe damage in the MRP system. Therefore, all planning processes have to ben done by hand. Luckily, the customer demands and inventory levels for the next week have been printed out. Therefore, it is known that for the two main products "Magnifico" (Mag) and "Professione" (Pro) total orders of 31 and 22 are given. Inventory records for the raw materials (R1,...,R4) and components (C1,...,C3) are as follows:
+
+|material id | R1 | R2 | R3 | R4 | C1 | C2 | C3 |
+|:------------|----|----|----|----|----|----|----|
+| inventory level | 125 | 163 | 225 | 183 | 47 | 95 | 41 |
+
+Information about the assembly processes are scattered. The only surviving piece of information is the following deranged matrix of direct production coefficients: 
+
+```{r, echo=FALSE}
+A <- matrix(0, ncol=9, nrow=9)
+colnames(A) <- rownames(A) <- c("Mag","Pro","C1","C2","C3","R1","R2", "R3", "R4")
+A[,"Mag"] <- c(0,0,1,1,0,3,1,1,0) 
+A[,"Pro"] <- c(0,0,3,0,0,0,0,3,3) 
+A[,"C1"] <-  c(0,0,0,2,1,5,3,0,2) 
+A[,"C2"] <-  c(0,0,0,0,0,4,2,6,3)
+A[,"C3"] <-  c(0,0,0,2,0,3,1,2,5)
+set.seed(123)
+tmp <- sample(1:9, 9)
+tmp2 <- sample(1:9, 9)
+A2 <- A[tmp,]
+A3 <- A2[,tmp2]
+A3
+```
+
+1. Help the management and draw a tree graph of the production process. Determine the production stages of each material. (*10 points*)
+
+<!-- tree graph "Mag"  | tree graph "Pro" -->
+<!-- - | -  -->
+<!-- ![alt](figs/task1_tree_graph_mag.png) | ![alt](figs/task1_tree_graph_pro.png) -->
+
+```{r, echo=FALSE, fig.show = "hold", out.width = "49%", fig.align = "default"}
+include_graphics(c("figs/task1_tree_graph_mag.png", "figs/task1_tree_graph_pro.png"))
+```
+
+The production stages are 
+
+|material id | R1 | R2 | R3 | R4 | C1 | C2 | C3 |
+|:------------|----|----|----|----|----|----|----|
+| prod. stage | 4 | 4 | 4 | 4 | 1 | 3 | 2 |
+
+2. Deduce the Gozinto graph of the production process and calculate the net demand of all materials. (*15 points*)
+
+```{r, echo=FALSE}
+# solution
+G <- round(solve(diag(1, ncol(A)) - A))
+x <- c(31,22,0 ,0 ,0,0,0,0,0)
+s <- c(0 , 0,47,95,41,125,163,225,183)
+net.dem <- G %*% (x-s)
+#net.dem
+```
+```{r, echo=FALSE, fig.show = "hold", out.width = "75%", fig.align = "center"}
+include_graphics(c("figs/task1_gozinto.png"))
+```
+
+
+# Task 2: Forecasting 
+
+Procurement processes at "DeEffimero" are typically highly automized. Particularly, the forecasts of C-material demands are usually automatically submitted to the corresponding raw material suppliers.  However, due to the system break down the procurement manager has to calculate the forecasts by hand. For raw material R3 the following weekly demands have been found in the remnants of the MRP system:
+
+```{r, echo=FALSE}
+n <- 12
+set.seed(12358)
+y.vec <- sapply(1:12, function(x) rpois(1, (x %% 4)*5 + 60 + x*1 ))
+plot(1:n, y.vec, type="b", ylab="demand (in units)", xlab="week" , xlim = c(0.5,n))
+text(1:n-.35, y.vec, y.vec)
+```
+
+1. In first trial, the procurement manager intends to forecasts the demand of week 13 with simple moving average with $n=4$ week. Calculate the forecast of week 13 and forecast errors for the previous weeks. Add the forecasts to the diagram and calculate the root mean squared error (RMSE)  for this forecasting method. (*10 points*)
+
+```{r, echo=FALSE}
+fc.ma <- c(NA, round(SMA(y.vec, n = 4),1))
+plot(1:n, y.vec, type="b", ylab="demand (in units)", xlab="week" , xlim = c(0.5,n+1))
+lines(1:(n+1), fc.ma, type ="b", col="blue", pch=16)
+text(1:n-.35, y.vec, y.vec)
+text(1:(n+1), fc.ma-2, fc.ma , col="blue")
+err <- round((head(fc.ma,-1)-y.vec),1)
+df <- data.frame(c(as.character(1:(n+1)), "RMSE"),  c(y.vec, NA, NA),   c(fc.ma,NA), c(err, NA, NA), c(round(err^2,1), NA, round(sqrt(mean(err^2, na.rm = T)),1 )) )
+colnames(df) <- c("period", "$y$" , "$\\hat{y}_t^{MA}$", "error $\\epsilon$", "sq. error $\\epsilon^2$")
+kable(df, out.file, row.names = FALSE, escape = F) %>% kable_styling("striped")
+```
+
+2. The procurement manager perceives the RMSE of the simple moving average forecasts as too high. She tries to improve the forecasts by applying 2nd order exponential smoothing with $\alpha = 0.5$ and $\beta = 0.5$ as well as $a_0 = 60$ and $b_0=1$. Calculate the forecast for week 13 and the RMSE for this method. (*10 points*)
+
+```{r, echo=FALSE}
+fc.2es <- round(sec.es(y.vec, alpha = 0.5 , beta = 0.5, initial = c(60, 1)  ),1)
+err <- round((fc.2es[2:13, "y.hat"]-y.vec),1)
+
+df <- data.frame( c(as.character(1:(n+1)), "RMSE"),  c(y.vec, NA, NA),  c(fc.2es[-1, "y.hat"],NA), c(err, NA, NA), c(round(err^2,1), NA, round(sqrt(mean(err^2, na.rm = T)),1 )) )
+colnames(df) <- c("period", "$y$" , "$\\hat{y}_t^{2ndES}$", "error $\\epsilon$", "sq. error $\\epsilon^2$")
+kable(df, out.file, row.names = FALSE, escape = F)  %>% kable_styling("striped")
+```
+
+3. Do you think the procedure outlined in 2. is best suited for forecasting the time series? What could be done to find better forecasts? (*5 points*) 
+
+Probably, the forecasting accuracy can be improved by a) tuning the parameters of forecasting methods ($\alpha$, $\beta$, initial values, ...) and b) a more sophisticated forecasting model. As the time series seems to show a cyclic pattern possibly 3rd order exponential smoothing or an seasonal ARIMA model would deliver better forecasting results. 
+
+Hint: Round to 1 digit in all calculations of task 2.
+
+# Task 3: ($s$,$q$) optimization
+
+For raw material "R1" an ($s$,$q$) policy is pursued. The sole supplier charges 250 Euro for each order placed. The raw material has a unit price of 1.50 Euro and the "DeEffimero" calculates with a holding cost rate of 1% per Euro and week. The procurement manager remembers that the supplier is quite reliable and delivers orders within 2 weeks once an order is placed. Additionally, she expects the weekly demand to be independent and normally distributed with $\mu=50$ and $\sigma=25$. 
+
+1. What is the risk period in this case? How is the demand in the risk period distributed? (*5 points*) 
+
+The risk periods equals the order lead time and is 2 weeks. The risk period demand (i.e., the demand duing two weeks) is independently normally distributed with $Y^{RP} \sim N\left(2 \cdot 50, 2\cdot25^2  \right)$.
+
+2. Calculate the optimal values of $s$ and $q$ when the procurement manager intends to achieve a $\beta$ service level of $98$%. (*15 points*)
+
+Set $c^{sh}=0.01\cdot 1.5 = 0.015$ and $c^{or} = 250$
+
+```{r}
+# solution
+iter.sq(mu = 50, sigma = 25, c.sh = 0.01*1.5, c.or = 250, beta = .98, L = 2)
+```
+
+--> Using the tabulated values you would step at iteration 3
+
+3. How do you assess the appropriateness of the outlined procedure? What aspects could be reconsidered to improve the results? (*5 points*)
+
+Under the given information, the procedure seems to be appropriate. However, if the $\beta$ service level should be that very high, it is probably worthwhile to analyze the lead time more closely such that variations in the lead time can included in the safety stock calculation.
+
+
+# Task 4: Joint Economic Lot Sizing
+
+The components C1 to C6 are all produced on the same machine. The production manager thinks about switching to a make-to-stock production for these components due to the IT system break-down. The production-specific information are summarized as follows:
+
+| component | C1 | C2 | C3 | C4 | C5 | C6 |
+|:----------|----|----|----|----|----|----|
+| holding cost rate $c^{sh}_i$ | 0.01 | 0.05 | 0.1 | 0.25 | 0.02 | 0.08 |
+| setup cost $c^{or}_i$        | 120  | 250  | 85  | 375  | 200  | 110  |
+| demand rate $y_i$            | 70   | 25   | 55  | 30   | 95   | 100 |
+| production rate $p_i$        | 400  | 300  | 380 | 350  | 650  | 500|
+| setup time $s_i$             | 0.2  | 0.5  | 0.3 | 0.1  | 0.2  | 0.1 |      
+
+1. Calculate the independent solution and the associated total cost. Is this solution feasible? (*10 points*)
+
+The independent solution is calculated as $T_i = \sqrt{\frac{2\cdot c^{or}_i}{c^{sh}_i \cdot y_i \cdot (1-\rho_i)} }$
+
+```{r}
+c.sh <- c(.01, .05,.1,.25,.02,.08)
+c.or <- c(120,250,85,375,200,110)
+y.vec <- c(70,25,55,30,95,100)
+p.vec <- c(400,300,380,350,650,500)
+rho.vec <- y.vec/p.vec
+s.vec <- c(.2,.5,.3,.1,.2,0.1)
+
+kappa <- 1-sum(y.vec/p.vec)
+
+# independent solution ##############################
+T.vec <- sqrt(2*c.or/c.sh/y.vec/(1-y.vec/p.vec))
+bat.vec <- T.vec*y.vec/p.vec + s.vec
+# cost of independent solution
+c.cost.ind <- elsp.obj(csh = c.sh, cor = c.or, y = y.vec, p = p.vec , t = T.vec)
+#sum(c.cost.ind)
+df <- round(rbind(T.vec, bat.vec, c.cost.ind), 1)
+rownames(df) <- c("cycle time $T_i$", "batch time $b_i$", "cost $C_i$" )
+kable(df, out.file, escape = F) %>% kable_styling("striped")
+```
+
+The total cost is `r round(sum(c.cost.ind),1)`. There is (probably) no feasible sequence as the idle time between 2 batches of products 3 and 6 is just $5.9-1.2-1.3=3.4$ which larger than the batch time of product 1 (`r round(bat.vec[1],1)`) which has to be scheduled somewhen between two batches of products 3 and 6.
+ 
+2. Find a feasible solution with power-of-2 heuristic. What are the total cost of this solution? (*15 points*)
+
+- *1st iteration*
+
+```{r, echo=FALSE}
+# # common cycle solution ##############################
+# T.com.opt <- sqrt(2*sum(c.or)/sum(y.vec*c.sh*(1-y.vec/p.vec)))
+# T.com.min <- sum(s.vec)/(1-sum(y.vec/p.vec))
+# 
+# T.com <- max(T.com.opt, T.com.min)
+# 
+# bat.vec.com <- T.com * y.vec/p.vec + s.vec
+# # cost of independent solution
+# c.cost.com <- elsp.obj(csh = c.sh, cor = c.or, y = y.vec, p = p.vec , t = T.com)
+# heuristic
+B <- min(T.vec)
+m.vec <- sqrt(2*c.or/B^2/c.sh/y.vec/(1-rho.vec))
+# round to closest power of 2
+# 1st iteration
+m.vec.r <- 2^round(log(m.vec)/log(2))
+
+B.opt <- sqrt(2*sum(c.or/m.vec.r)/sum(c.sh*y.vec*m.vec.r*(1-rho.vec)))
+B.min <- sum(s.vec/m.vec.r)/kappa
+B <- max(B.opt, B.min)
+c.cost.po2.1 <- elsp.obj(csh = c.sh, cor = c.or, y = y.vec, p = p.vec , t = m.vec.r*B)
+bat.vec.po2.1 <- B * m.vec.r * y.vec/p.vec + s.vec
+
+df <- round( rbind(m.vec , m.vec.r, bat.vec.po2.1) , 1)
+colnames(df) <- 1:6
+rownames(df) <- c("multiplier $m_i$", "rounded multiplier $[m_i]$", "batch times $m_i$")
+kable(df, out.file, escape = F) %>% kable_styling("striped")
+```
+
+As $B=$ `r round(B, 1)` no feasible sequence can be found.
+
+Thus, we reduce the multiplier for the product with the largest batch time $\Rightarrow \; m_1= 2$ 
+
+- *2nd iteration*
+
+```{r, echo=FALSE}
+## 2nd iteration
+###change m vector by hand
+m.vec.r <- c(2,4,1,2,2,1)
+B.opt <- sqrt(2*sum(c.or/m.vec.r)/sum(c.sh*y.vec*m.vec.r*(1-rho.vec)))
+B.min <- sum(s.vec/m.vec.r)/kappa
+B <- max(B.opt, B.min)
+c.cost.po2.2 <- elsp.obj(csh = c.sh, cor = c.or, y = y.vec, p = p.vec , t = m.vec.r*B)
+bat.vec.po2.2 <- B * m.vec.r * y.vec/p.vec + s.vec
+df <- round( rbind( m.vec.r, bat.vec.po2.2) , 1)
+rownames(df) <- c("rounded multiplier $[m_i]$", "batch times $m_i$")
+colnames(df) <- 1:6
+kable(df, out.file, escape = F) %>% kable_styling("striped")
+```
+
+As $B=$ `r round(B, 1)` and due to the large batch time of product 2 no feasible solution can be found
+
+Thus, we reduce the multiplier of product 2 $\Rightarrow \; m_2= 2$ 
+
+- *3rd iteration*
+
+```{r, echo=FALSE}
+## 3rd iteration
+###change m vector by hand
+m.vec.r <- c(2,2,1,2,2,1)
+B.opt <- sqrt(2*sum(c.or/m.vec.r)/sum(c.sh*y.vec*m.vec.r*(1-rho.vec)))
+B.min <- sum(s.vec/m.vec.r)/kappa
+B <- max(B.opt, B.min)
+c.cost.po2.3 <- elsp.obj(csh = c.sh, cor = c.or, y = y.vec, p = p.vec , t = m.vec.r*B)
+bat.vec.po2.3 <- B * m.vec.r * y.vec/p.vec + s.vec
+df <- round( rbind( m.vec.r, bat.vec.po2.3, c.cost.po2.3) , 1)
+rownames(df) <- c("rounded multiplier $[m_i]$", "batch times $m_i$", "Cost $C_i$")
+colnames(df) <- 1:6
+kable(df, out.file, escape = F) %>% kable_styling("striped")
+```
+
+As $B=$ `r round(B, 1)` a feasible sequence can be found: 
+```{r}
+df <- data.frame(
+# m=1
+rep("3+6",2), rep(2.6, 2), rep(3.9, 2),
+# m=2
+c("2+5","1+4") , c(3.7,3.7), c(0.2,0.2)
+)
+rownames(df) <- 1:nrow(df)
+colnames(df) <- rep(c("$i$", "$\\sum b_i$", "rest" ), 2)
+
+kable(df, out.file, row.names = T, escape = F) %>%
+  kable_styling("striped") %>%
+  add_header_above(c(" " = 1, "$m=1$" = 3, "$m=2$" = 3), escape = F)
+```
+
+
+
+The total cost is `r round(sum(c.cost.po2.3),1)`
