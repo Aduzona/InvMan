@@ -37,13 +37,13 @@ Z (q)=&  c_o \cdot \int_{0}^{q} (q-y) \cdot f_y(y) dy + c_u \cdot \int_{q}^{\inf
 =&  0.9 \cdot q^2 - 195 \cdot q + 11062.5&
 \end{align*}
 
-The derivative of $Z(q)$ is $Z'(q) = 1.8 \cdot q - 195$ such that $q^* \approx 108$. The expected profit is $100 \cdot 60 - Z(108) = 600 - 500.1 \approx 100$ Euro.
+The derivative of $Z(q)$ is $Z'(q) = 1.8 \cdot q - 195$ such that $q^* \approx 108$. The expected profit is $100 \cdot 60 - Z(108) = 6,000 - 500.1 \approx 5,500$ Euro.
 
 # Discrete newsvendor
 
 The spare part demand $Y$ for solar aggregates is binomially distributed with $n=20 \cdot 5 = 100$ and $p=0.04$, i.e. $Y \sim B(n,p)$. Thus, the density values can be calculated as $P(Y=y) = {n \choose y} \cdot p^y \cdot (1-p)^{n-y}$.
 
-Total cost are calculated by $E(C(q))=c^u \cdot (\mu - q) + (c^u + c^o ) \cdot E(S^+(q))$. Undershooting cost and overshooting cost are calculated as $E(C^{us}(q)) = c^u \cdot  E(S^-(q)) = c^u \cdot \sum_{y=q}^{15} (y-q)\cdot f(y)$ and  $E(C^{os}(q)) = c^o \cdot  E(S^+(q)) = c^u \cdot \sum_{y=0}^{q} (y-q)\cdot f(y)$.
+Total cost are calculated by $E(C(q))=c^u \cdot (\mu - q) + (c^u + c^o ) \cdot E(S^+(q))$. Undershooting cost and overshooting cost are calculated as $E(C^{us}(q)) = c^u \cdot  E(S^-(q)) = c^u \cdot \sum_{y=q}^{15} (y-q)\cdot f(y)$ and  $E(C^{os}(q)) = c^o \cdot  E(S^+(q)) = c^o \cdot \sum_{y=0}^{q} (q-y)\cdot f(y)$.
 
 ```{r, exe4-3, echo=FALSE}
 n <- 100

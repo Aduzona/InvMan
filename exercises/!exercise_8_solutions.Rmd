@@ -3,15 +3,16 @@ author: "Thomas Kirschstein"
 title: "Solution Exercise 8 - Multi-item lot sizing"
 subtitle: Inventory Management
 output:
+  pdf_document: default
   html_document:
     df_print: paged
     toc: yes
     toc_float: true
     number_sections: false
-  pdf_document: default
 ---
   
 ```{r, setup, echo=F, include=T, error=FALSE, warning=FALSE, message=FALSE}
+out.file <-"latex" # "html" # 
 library(DT)
 library(kableExtra)
 library(knitr)
@@ -45,7 +46,7 @@ kappa <- 1-sum(y.vec/p.vec)
 df <- t(as.data.frame(round(y.vec/p.vec,2)))
 rownames(df) <- "$\\rho_i$"
 colnames(df) <- 1:nb.prod
-kable(df, "pandoc", row.names = T)
+kable(df, out.file, row.names = T, escape = F) %>% kable_styling("striped")
 ```
 
 Additionally, the  idle time share  $\kappa =1- \sum_{i=1}^n \rho_i=$ `r round(kappa,1)` is greater than 1, too. Thus, a feasible schedule shall exist.
@@ -65,7 +66,7 @@ c.cost.ind <- elsp.obj(csh = c.sh, cor = c.or, y = y.vec, p = p.vec , t = T.vec)
 df <- as.data.frame(rbind(round(T.vec,2), round(bat.vec,2) ))
 rownames(df) <- c("$T_i$","$b_i$")
 colnames(df) <- 1:nb.prod
-kable(df, "pandoc", row.names = T)
+kable(df, out.file, row.names = T, escape = F) %>% kable_styling("striped")
 ```
 
 The total cost of the independent solution are 
@@ -74,7 +75,7 @@ The total cost of the independent solution are
 df <- t(as.data.frame(round( c(c.cost.ind, sum(c.cost.ind)) ,2) ))
 rownames(df) <- c("$C(T_i)$")
 colnames(df) <- c(as.character(1:nb.prod), "$\\sum$")
-kable(df, "pandoc", row.names = T)
+kable(df, out.file, row.names = T, escape = F) %>% kable_styling("striped")
 ```
 
 As the smallest cycle time of the independent solution is `r round(min(T.vec),2)` but the largest batch time is `r round(max(bat.vec) , 2)`, a feasible schedule cannot be found. 
@@ -97,7 +98,7 @@ c.cost.com <- elsp.obj(csh = c.sh, cor = c.or, y = y.vec, p = p.vec , t = T.com)
 df <- as.data.frame(rbind( round(c(bat.vec.com, sum(bat.vec.com) ),2), round( c( c.cost.com , sum(c.cost.com) ),2) ))
 rownames(df) <- c("$b_i$","$C(T_i)$")
 colnames(df) <- c(as.character(1:nb.prod), "$\\sum$")
-kable(df, "pandoc", row.names = T)
+kable(df, out.file, row.names = T, escape = F) %>% kable_styling("striped")
 ```
 
 whereby $T = \max \left(T^*,\underline{T} \right)=\max($ `r round(T.com.opt,2)`,`r round(T.com.min,2)`$)=$ `r round(T.com,2)` and the total cost are $\sum_{i=1}^n C_i(T) =$ `r round(sum(c.cost.com),2)`  . 
@@ -123,7 +124,7 @@ c.cost.po2.1 <- elsp.obj(csh = c.sh, cor = c.or, y = y.vec, p = p.vec , t = m.ve
 df <- as.data.frame(rbind( round(m.vec,2), m.vec.r ))
 rownames(df) <- c("$m_i$","$[m_i]$")
 colnames(df) <- c(as.character(1:nb.prod))
-kable(df, "pandoc", row.names = T)
+kable(df, out.file, row.names = T, escape = F) %>% kable_styling("striped")
 ```
 
 Reoptimizing the basic cycle time yields $B=$ `r round(B.opt, 2)` such that the following batch times result
@@ -133,7 +134,7 @@ bat.vec.po2.1 <- B.opt * m.vec.r * y.vec/p.vec + s.vec
 df <- as.data.frame(rbind(round(B.opt * m.vec.r,2),  round(bat.vec.po2.1,2) ))
 rownames(df) <- c("$T_i=m_i \\cdot B$","$b_i$")
 colnames(df) <- c(as.character(1:nb.prod))
-kable(df, "pandoc", row.names = T)
+kable(df, out.file, row.names = T, escape = F) %>% kable_styling("striped")
 ```
 
 We observe that again the basic cycle time is smaller than the largest batch time. I.e., this solution cannot be feasible. However, maybe not  synchronization feasibility (alone) is the problem, but the capacity constraint. Therefore, we can compute a minimum basic cylce time $\underline{B}$ analogues to $\underline{T}$ in the common cycle solution by rearranging $\sum_{i =1 }^n{\frac{s_i}{m_i \cdot B}} \leq \kappa$ for $B$. Thus, we have $B \geq \frac{1}{\kappa} \cdot \sum_{i=1}^n{\frac{s_i}{m_i}} = \underline{B}$. Here, $\underline{B}=$ `r round(B.min,2)`such that $B=\max\left(B^* , \underline{B} \right)=\max ($ `r round(B.opt,2)`,`r round(B.min,2)` $)=$ `r round(B,2)`. We conclude that the capacity constraint is not violated, but nonetheless no feasible solution can be found.
@@ -154,7 +155,7 @@ bat.vec.po2.2 <- B * m.vec.r * y.vec/p.vec + s.vec
 df <- as.data.frame(rbind(m.vec.r, round(B.opt * m.vec.r,2),  round(bat.vec.po2.2,2) ))
 rownames(df) <- c("$[m_i]$","$T_i=m_i \\cdot B$","$b_i$")
 colnames(df) <- c(as.character(1:nb.prod))
-kable(df, "pandoc", row.names = T)
+kable(df, out.file, row.names = T, escape = F) %>% kable_styling("striped")
 ```
 
 The basic cycle time is $B=$ `r round(B, 2)`. Again no feasible solution can be found as $B$ is smaller than the largest batch time.
@@ -175,7 +176,7 @@ bat.vec.po2.3 <- B * m.vec * y.vec/p.vec + s.vec
 df <- as.data.frame(rbind(m.vec, round(B.opt * m.vec,2),  round(bat.vec.po2.3 , 2) ))
 rownames(df) <- c("$[m_i]$","$T_i=m_i \\cdot B$","$b_i$")
 colnames(df) <- c(as.character(1:nb.prod))
-kable(df, "pandoc", row.names = T)
+kable(df, out.file, row.names = T, escape = F) %>% kable_styling("striped")
 ```
 
 The basic cycle time is $B=$ `r round(B, 2)`. A feasible solution may exist as $B$ is larger than the largest batch time. Thus, we try to find a feasible schedule:
@@ -197,12 +198,12 @@ c(rep("",7),"2",rep("",7),"6"), c(rep(0,7),1.0,rep(0,7),1.19), c(0.04,0.08,0.64,
 rownames(df) <- 1:nrow(df)
 colnames(df) <- rep(c("$i$", "$\\sum b_i$", "rest" ), 5)
 
-kable(df,"html", row.names = T, escape = F) %>%
+kable(df,out.file, row.names = T, escape = F) %>%
   kable_styling("striped") %>%
   add_header_above(c(" " = 1, "$m=1$" = 3, "$m=2$" = 3, "$m=4$" = 3, "$m=8$" = 3, "$m=16$" = 3), escape = F)
 ```
 
-Obviously, the schedule is feasible. The total cost are `r round(sum(c.cost.po2.3),2)`.
+Obviously, the schedule is feasible. The total cost is `r round(sum(c.cost.po2.3),2)`.
 
 # Joint replenishment problem
 
@@ -231,7 +232,7 @@ y.vec <- y.vec[reo.id]
 df <- data.frame( round(rbind( c.or, h.vec, T.vec),2)  )
 rownames(df) <- c( "$c^{or}_i$", "$H_i$", "$T_i$" )
 colnames(df) <- reo.id 
-kable(df,"pandoc", row.names = T)
+kable(df, out.file, row.names = T, escape = F) %>% kable_styling("striped")
 ```
 
 2. Use the basic period heuristic to find a solution for the replenishment problem (round to integers). Determine also the order quantities of each product. 
@@ -252,7 +253,7 @@ df <- data.frame(round(res.mat,2))
 colnames(df) <- reo.id 
 rownames(df) <- c(  "$T^2_i$" ,"$T^C$"  )
 
-kable(df,"pandoc", row.names = T)
+kable(df, out.file, row.names = T, escape = F) %>% kable_styling("striped")
 ```
 
 Thus, the break-even is reached at position `r id.comb`, i.e., product `r reo.id[id.comb]`. The basic cycle time is $B=\min(T_i)=$ `r round(B,2)`. Now, the frequencies $m_i$ can be determined (and rounded).
@@ -267,26 +268,26 @@ B.int <- sqrt(sum(c.or/m.vec.int)/sum(m.vec.int*h.vec))
 # total cost 
 c.cost.int <- jrp.obj.fun( m = m.vec.int, B=B.int, cor = c.or,csh = h.vec, cor0 = c.or0)
 
-df <- data.frame(rbind(round(T.vec/B,2), round(T.vec/B), m.vec.int))
+df <- data.frame(rbind(round(T.vec/B.int,2), round(T.vec/B.int), m.vec.int))
 colnames(df) <- reo.id 
 rownames(df) <- c("$m_i=\\frac{T_i}{B}$" ,"$[m_i]$", "$[\\tilde{m}_i]$" )
-kable(df,"pandoc", row.names = T)
+kable(df, out.file, row.names = T, escape = F) %>% kable_styling("striped")
 ```
 
-Reoptimizing basic cycle time yields $B=$ `r round(B.int,2)` and the total cost are `r round(c.cost.int,2)` 
-
-The order quantities are given by multiplying the cycle times $T_i$ with demand rates $y_i$, i.e. $q_i = T_i \cdot y_i$ such that
+Reoptimizing basic cycle time yields $B=$ `r round(B.int,2)`. The order quantities are given by multiplying the cycle times $T_i$ with demand rates $y_i$, i.e. $q_i = T_i \cdot y_i$. The individual cost per material $C_i(q_i)$ are given by $C_i(q_i)=\frac{c^{or}_i}{m_i \cdot B} + H_i\cdot m_i \cdot B$  such that
 
 ```{r, echo=F}
 
-df <- data.frame(rbind( m.vec.int, round(m.vec.int*B, 2), round(m.vec.int*B*y.vec, 2) ))
+df <- data.frame(rbind( m.vec.int, round(m.vec.int*B.int, 2), round(m.vec.int*B.int*y.vec, 2) , round(m.vec.int*B.int*h.vec + c.or/m.vec.int/B.int, 2) ))
 colnames(df) <- reo.id 
-rownames(df) <- c("$[\\tilde{m}_i]$", "$T_i$", "$q_i$" )
-kable(df,"pandoc", row.names = T)
+rownames(df) <- c("$[\\tilde{m}_i]$", "$T_i$", "$q_i$", "$C_i(q_i)$" )
+kable(df,out.file, row.names = T, escape = F) %>% kable_styling("striped")
 
 ```
 
-
+ The total cost are then given by $C=\frac{c^{or}_0}{B} + \sum_{i=1}^8 C_i(q_i)=$ `r round(c.cost.int,2)`.
+ 
+ 
 3. Try to find another solution by rounding ordering frequencies to powers of 2 (instead of integers). Can the solution from 2. be improved?
 
 Rounding to the closest power of 2 results in the following frequencies:
@@ -302,7 +303,7 @@ m.vec.pow2[1:id.comb] <- 1
 df <- data.frame(rbind( round(T.vec/B,2) , m.vec.int, m.vec.pow2) )
 colnames(df) <- reo.id 
 rownames(df) <- c("$m_i=\\frac{T_i}{B}$" ,"$[\\tilde{m}_i]$","$[\\tilde{m}_i]_{2^\\mathbb{N}}$" )
-kable(df,"pandoc", row.names = T)
+kable(df, out.file, row.names = T, escape = F) %>% kable_styling("striped")
 
 
 # re-optimize B 
@@ -315,7 +316,6 @@ Reoptimizing the basic cycle time yields $B=$ `r round(B.pow2,2)` and the total 
 
 However, one can improve the solution by altering the integer-rounding solution slightly (see product #5) as follows:
 
-
 ```{r, echo=FALSE}
 # solution with m - power of 2 #######################
 # Alternative 1: round automatically to closest power of  2
@@ -324,7 +324,7 @@ m.vec.bt <- c(1,1,1,1,1,2,7,12)
 df <- data.frame(rbind( round(T.vec/B,2) , m.vec.int, m.vec.bt) )
 colnames(df) <- reo.id 
 rownames(df) <- c("$m_i=\\frac{T_i}{B}$" ,"$[\\tilde{m}_i]$","$[\\tilde{m}_i]_{alt.}$" )
-kable(df,"pandoc", row.names = T)
+kable(df, out.file, row.names = T, escape = F) %>% kable_styling("striped")
 
 # re-optimize B 
 B.bt <- sqrt(sum(c.or/m.vec.bt)/sum(m.vec.bt*h.vec))
@@ -332,4 +332,4 @@ B.bt <- sqrt(sum(c.or/m.vec.bt)/sum(m.vec.bt*h.vec))
 c.cost.bt <- jrp.obj.fun( m = m.vec.bt, B=B.bt, cor = c.or,csh = h.vec,cor0 = c.or0)
 ```
 
-Reoptimizing the basic cycle time yields $B=$ `r round(B.bt,2)` and the total cost are `r round(c.cost.bt,2)`.
+Reoptimizing the basic cycle time yields $B=$ `r round(B.bt,2)` and the total cost is `r round(c.cost.bt,2)`.
