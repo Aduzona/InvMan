@@ -183,6 +183,8 @@ dev.off()
 
 # 1st order exp. smoothing #####################################################################
 
+#y.com <- y.com.ts <- c(50.46,49.78,58.39,61.97,54.33,55.67,60.07,50.33,60.45,52.21)
+
 y.1st.exp.smoo <- HoltWinters(y.com.ts, alpha = .4, beta = F, gamma = F)
 
 round(head(cbind(y.com, c(NA, y.1st.exp.smoo$fitted[,1])),10),2)

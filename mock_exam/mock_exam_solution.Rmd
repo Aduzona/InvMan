@@ -3,14 +3,14 @@ title: "Mock exam"
 author: "Thomas Kirschstein"
 subtitle: Inventory Management
 output:
-  pdf_document: default
-  word_document:
-    toc: yes
   html_document:
     df_print: paged
     toc: yes
     toc_float: yes
     number_sections: no
+  word_document:
+    toc: yes
+  pdf_document: default
 ---
   
 ```{r, setup, echo=F, include=T, error=FALSE, warning=FALSE, message=FALSE}

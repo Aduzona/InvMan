@@ -3,12 +3,12 @@ author: "Thomas Kirschstein"
 title: "Solution Exercise 8 - Multi-item lot sizing"
 subtitle: Inventory Management
 output:
-  pdf_document: default
   html_document:
     df_print: paged
     toc: yes
     toc_float: true
     number_sections: false
+  pdf_document: default
 ---
   
 ```{r, setup, echo=F, include=T, error=FALSE, warning=FALSE, message=FALSE}
